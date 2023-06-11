@@ -172,7 +172,8 @@ type Chainable<O = {}> = {
 键入函数`PromiseAll`，它接受`PromiseLike`对象数组，返回值应为`Promise<T>`，其中T是解析的结果数组
 
 ```typescript
-
+declare function PromiseAll<T extends unknown[]>(values: readonly [...T]):
+  Promise<{ [K in keyof T]: T[K] extends Promise<infer R> ? R : T[K] }>;
 ```
 
 #### Trim
@@ -258,8 +259,10 @@ type AppendArgument<Fn extends (...args: any[]) => any, V> = (...params: [...Par
 实现联合类型的全排列，将联合类型转换成所有可能的全排列数组的联合类型。
 
 ```typescript
-
-
+// T extends T 触发分布式条件类型
+// 假设T是1 | 2| 3, K = T = 1 | 2 | 3
+// [T, ...Permutation<Exclude<K, T>] -> [1, ...Permutation<2 | 3>] -> [1, ...Permutation<2>] | [1, ...Permutation<3>]
+type Permutation<T, K = T> = [T] extends [never] ? [] : T extends T ? [T, ...Permutation<Exclude<K, T>>] : never
 ```
 
 #### Length Of String
@@ -280,17 +283,16 @@ type LengthOfString<
 写一个接受数组的类型，并且返回扁平化的数组类型
 
 ```typescript
-// 泛型参数T可以当成一个新的数组类型变量，用于存储扁平化的数组类型
-type Flatten<S extends any[], T extends any[] = []> = S extends [
-  infer X,
-  ...infer Y
-]
-  ? X extends any[]
-    ? // 如果X（成员)是数组类型，则展开X
-      Flatten<[...Y, ...X], T>
-    : // 如果X（成员）不是数组类型，则添加进T
-      Flatten<Y, [...T, X]>
-  : T;
+// 定义一个数组类型"变量"S存储扁平化的后的数组类型
+type Flatten<T extends unknown[], S extends unknown[] = []> = T extends [infer F, ...infer R]
+  // 遍历T，
+  ? F extends unknown[]
+    // 如果F是数组类型，展开F，继续递归
+    ? Flatten<[...F, ...R], S>
+    // 如果F不是数组类型，则添加进S
+    : Flatten<R, [...S, F]>
+  // 遍历结束后，返回S
+  : S
 
 type Flatten<T> = T extends []
   ? []
@@ -327,15 +329,6 @@ type StringToUnion<T> = T extends `${infer F}${infer R}`
   ? F | StringToUnion<R>
   : never;
 ```
-
-
-
-unknown
-1. 任何类型都可以赋值给unknown
-2. 不能将其他类型赋值给unknown
-3. unknown与其他类型组成交叉类型都是其他类型
-4. unknown与其他类型组成联合类型都是unknown（除了any
-5. never类型是unknow类型的子类型
 
 #### Merge
 将两个类型合并成一个类型，第二个类型的键会覆盖第一个类型的键
@@ -808,7 +801,7 @@ type Include<T, E> = T extends [infer F, ...infer R]
     : Include<R, E>
   : false;
 
-// 定义一个U用于存储去重后的类型，递归遍历T，判断U中是否存在该类型（遍历到的），存在则“添加”进去
+// 定义一个U用于存储去重后的类型，遍历T，判断U中是否存在该类型（遍历到的），存在则“添加”进去
 type Unique<T, U extends unknown[] = []> = T extends [infer F, ...infer R]
   ? Include<U, F> extends true
     ? Unique<R, U>
@@ -830,7 +823,7 @@ type Unique<T, U extends unknown[] = []> = T extends [infer F, ...infer R]
 type ConstructTuple<
   L extends number,
   T extends unknown[] = []
-  // 递归遍历，只要T['length']不满足L，就追加元素
+  // 递归判断，只要T['length']不满足L，就追加元素
 > = T["length"] extends L ? T : ConstructTuple<L, [...T, unknown]>;
 ```
 
@@ -950,7 +943,7 @@ type Includes<T extends unknown[], U> = T extends [infer F, ...infer Rest]
 // type arr2 = [string] -> arr2['length'] -> 1
 type CheckRepeatedTuple<T extends unknown[]> = number extends T["length"]
   ? false
-  : // 递归遍历T，每次取出第一项
+  : // 遍历T，每次取出第一项
   T extends [infer F, ...infer Rest]
   ? // 判断后面的所有成员中是否有与第一项相等的
     Includes<Rest, F> extends true
