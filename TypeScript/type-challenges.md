@@ -920,6 +920,149 @@ type ReplaceFirst<T extends readonly unknown[], S, R> = T extends readonly [
     : [F, ...ReplaceFirst<Rest, S, R>]
   : [];
 ```
+### Transpose
+
+```ts
+type Array<N extends number, T extends unknown[] = []> = T["length"] extends N
+  ? T
+  : Array<N, [...T, unknown]>;
+
+type AddOne<N extends number> = [
+  unknown,
+  ...Array<N>
+] extends infer R extends unknown[]
+  ? R["length"]
+  : N;
+
+type GetArrayByIndex<
+  N extends number,
+  T extends unknown[][],
+  U extends unknown[] = []
+> = T extends [infer F extends unknown[], ...infer R extends unknown[][]]
+  ? GetArrayByIndex<N, R, [...U, F[N]]>
+  : U;
+
+type Transpose<
+  T extends unknown[][],
+  L extends number = 0,
+  U extends unknown[] = []
+> = U["length"] extends T[0]["length"]
+  ? U
+  : T extends [infer F extends unknown[], ...infer R extends unknown[][]]
+  ? Transpose<T, AddOne<L>, [...U, [F[L], ...GetArrayByIndex<L, R>]]>
+  : U;
+
+
+// 另一种思路
+type Transpose<M extends number[][],R = M['length'] extends 0?[]:M[0]> = {
+  [X in keyof R]: {
+    [Y in keyof M]: X extends keyof M[Y] ? M[Y][X] :never
+  }
+}
+```
+
+
+
+
+
+
+### Square
+Given a number, your type should return its square.
+
+```ts
+type Abs<N extends number> = `${N}` extends `-${infer T extends number}`
+  ? T
+  : N;
+
+type NewArray<
+  N extends number,
+  T extends unknown[] = []
+> = T["length"] extends N ? T : NewArray<N, [...T, unknown]>;
+
+type Decrease<N extends number> = NewArray<N> extends [unknown, ...infer R]
+  ? R["length"]
+  : N;
+
+// 3^2 = 3 * 3 = 3 + 3 + 3
+type Square<
+  N extends number,
+  S extends number = Abs<N>,
+  U extends unknown[] = []
+> = Abs<N> extends 0
+  ? U["length"]
+  : Square<Decrease<Abs<N>>, S, [...U, ...NewArray<S>]>;
+```
+
+
+### Triangular number
+
+```ts
+// 减法的思路
+type NewArr<N extends number, T extends unknown[] = []> = T["length"] extends N
+  ? T
+  : NewArr<N, [...T, unknown]>;
+
+type Decrease<N extends number> = NewArr<N> extends [unknown, ...infer R]
+  ? R["length"]
+  : N;
+
+type Triangular<N extends number, T extends unknown[] = []> = N extends 0
+  ? T["length"]
+  : Triangular<Decrease<N>, [...T, ...NewArr<N>]>;
+
+// 加法的思路
+type Triangular<
+  N extends number,
+  P extends unknown[] = [],
+  A extends unknown[] = []
+// 构建出长度为N的数组P
+> = P["length"] extends N
+  ? A["length"]
+  // 每次不满足就给P加一个unkown，即长度+1，然后把P添加进A
+  : Triangular<N, [...P, unknown], [...A, ...P, unknown]>;
+```
+
+### CartesianProduct
+
+```ts
+// Union<2 | 3> -> [2] | [3]
+type Union<T> = T extends T ? [T] : never;
+
+// [1, ...Union<2 | 3>] -> [1, 2] | [1, 3]
+type CartesianProduct<T, U> = T extends T ? [T, ...Union<U>] : never;
+
+
+// 另一种思路
+type CartesianProduct<T, U> = T extends T
+  ? U extends U
+    ? [T, U]
+    : never
+  : never;
+```
+
+### MergeAll
+
+合并两个对象，如果键重叠，则将键值合并成一个联合类型
+
+```ts
+// merge two objects
+type MergeObj<T, U> = {
+  [K in keyof T | keyof U]: K extends keyof T
+    ? K extends keyof U
+      ? T[K] | U[K]
+      : T[K]
+    : K extends keyof U
+    ? U[K]
+    : never;
+};
+
+// O stores merged object
+type MergeAll<T, O = {}> = T extends [infer F, ...infer R]
+  ? // loop merge F and O
+    MergeAll<R, MergeObj<F, O>>
+  : O;
+```
+
 
 
 #### CheckRepeatedTuple
