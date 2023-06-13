@@ -1,6 +1,88 @@
 # Hooks系列
 
-结构尽量保持和官方文档一致
+文档结构尽量保持和官方文档一致
+
+## [useCallback](https://react.dev/reference/react/useCallback)
+
+>在组件重新渲染之间缓存一个函数（需要配合`memo`使用
+
+```ts
+const cacheFn = useCallback(fn, dependencies)
+```
+
+## 1.Reference
+
+### Parameters
+
+- `fn`：需要缓存的函数，可以接收任意个数的参数以及返回任意类型的值。在初始化渲染期间，`React`会返回这个函数（不会调用它），下一次渲染时，当依赖性没有发生变化，`React`会再一次返回这个相同的函数。
+
+- `dependencies`：`fn`中使用的所有响应式值的列表，响应式值包含`props`、`state`以及所有变量，函数声明包含在组件内部的。依赖性列表必须具体恒定数量的项，`React`将使用`Object.is`比较每个依赖性与其先前的值
+
+### Returns
+
+>在初始化渲染期间，`useCallback`返回传递的函数；在之后的渲染中，它要么返回在上一次渲染中存储的函数，要么返回一个在当前渲染期间传递的函数（新的函数）
+
+### Caveats
+
+- 只能在组件的顶层作用域中调用，不能在循环和条件语句中调用
+- 略
+
+
+## 2. Usage
+
+### Skipping re-rendering of components 
+>在优化渲染性能时，可以缓存传递给子组件的函数。默认行为下，当一个组件重新渲染时，`React`会递归地渲染它的所有子组件
+
+```ts
+import { memo } from 'react';
+
+// 需要配合memo一起使用
+const ShippingForm = memo(function ShippingForm({ onSubmit }) {
+  // ...
+});
+
+function ProductPage({ productId, referrer, theme }) {
+  // ...
+
+  // 通过包裹在useCallback中，可以确保在重新渲染期间，这个函数是相同的（直到依赖项变化
+  const handleSubmit = useCallback((orderDetails) => {
+    post('/product/' + productId + '/buy', {
+      referrer,
+      orderDetails,
+    });
+  }, [productId, referrer]);
+
+  return (
+    <div className={theme}>
+      <ShippingForm onSubmit={handleSubmit} />
+    </div>
+  );
+}
+```
+
+### DEEP DIVE：How is useCallback related to useMemo? 
+
+>不同之处在于它们允许缓存的内容
+
+- `useMemo`：缓存的是调用函数参数的返回值。
+- `useCallback`：缓存额是函数参数本身（不会调用。
+
+```ts
+// Simplified implementation (inside React)
+function useCallback(fn, dependencies) {
+  return useMemo(() => fn, dependencies);
+}
+```
+
+### Updating state from a memoized callback
+
+```ts
+
+
+```
+
+
+## [useContext](https://react.dev/reference/react/useContext)
 
 
 ## [useState](https://react.dev/reference/react/useState)
@@ -15,7 +97,7 @@ const [state, setState] = useState(initialState)
 
 ### Parameters
 
->`initialState`初始值有两种情况，函数和非函数。当初始值是函数时`React`会在组件初始化时调用这个函数，并将它的返回值存储起来，这个函数需要是纯函数（没有副作用）。
+- `initialState`：初始值有两种情况，函数和非函数。当初始值是函数时`React`会在组件初始化时调用这个函数，并将它的返回值存储起来，这个函数需要是纯函数（没有副作用）。
 
 ```ts
 // 任意类型的值
@@ -327,8 +409,230 @@ function handleClick() {
 }
 ```
 
+## 4. 一句话总结用法
+
+>`useState`接受两个参数，第一个是状态的初始值，如果初始值是函数，会在初始化渲染期间调用这个函数，并将其返回值存储起来；第二个参数是更新状态的函数，这个更新函数调用时，传递的参数如果是函数会接收到上一次状态的值，然后将其调用结果作为新的状态更新。
+
 -----------------------------
 
 ## [UseMemo](https://react.dev/reference/react/useMemo)
 
->在重新渲染之间缓存计算结果。（由于每一次状态更新都会导致组件重新渲染
+>在组件重新渲染之间缓存计算结果。（由于每一次状态更新都会导致组件重新渲染
+
+```ts
+const cachedValue = useMemo(calculateValue, dependencies)
+```
+
+## 1. Reference
+
+### Parameters
+
+- `calculateValue`：需要缓存值的计算函数，它必须是纯函数，没有任何参数，返回一个任意类型的值。`React`将会调用这个函数在初始化渲染期间，在下次渲染时`React`将会返回相同的结果（如果`dependencies`在上一次渲染后没有任何变化），否则`React`将再次调用这个`calculateValue`拿到最新的返回结果进行缓存
+
+- `dependencies`：在`calculateValue`中使用的所有响应式值的列表，响应式值包含`props`、`state`以及所有变量，函数声明包含在组件内部的。依赖性列表必须具体恒定数量的项，`React`将使用`Object.is`比较每个依赖性与其先前的值
+
+### Returns
+>在初始化渲染中，`useMemo`的返回值是`calculateValue`调用后的返回值;在下一个渲染期间，它要么是上次渲染缓存的值，要么是再次调用`calculateValue`的返回值。
+
+### Caveats
+
+- 只能在组件的顶层作用域中调用，不能在循环和条件语句中调用
+- 严格模式中，`React`会调用计算函数两次，这是为了检查是不是纯函数，开发环境的行为
+
+## 2. Usage
+
+### Skipping expensive recalculations
+
+>`useCache`在重新渲染之间缓存一个计算结果，直到它的依赖性发生变化
+
+```ts
+// 如果这个TodoList更新了状态，或者接受了一个新的props，这个filterTodos函数就会重新执行
+// 通常这不是一个问题，因为大多数计算都是非常快的，如果filter了一个大的数组，或者做了一些"昂贵"的计算
+// 你可能就想跳过它（如果数据没有发生改变
+function TodoList({ todos, tab, theme }) {
+  const visibleTodos = filterTodos(todos, tab);
+  // ...
+}
+
+// fix
+// 用useMemo包裹这个计算函数
+function TodoList({ todos, tab, theme }) {
+  const visibleTodos = useMemo(() => filterTodos(todos, tab), [todos, tab])
+  // ...
+}
+```
+
+### Skipping re-rendering of components 
+
+>某些情况下，`useMemo`能优化子组件重新渲染的性能问题，默认情况下当一个组件重新渲染时，`React`会递归地渲染它的所有子组件
+
+```ts
+// 这里当TodoList因为theme重新渲染时，List组件也会重新渲染
+// 如果这个重新渲染很慢，就需要告诉List组件跳过这次渲染
+function TodoList({ todos, tab, theme }) {
+  // ...
+  return (
+    <div className={theme}>
+      <List items={visibleTodos} />
+    </div>
+  );
+}
+
+// fix
+import { useMemo } from 'react'
+
+const List = useMemo(function List({ items })) {
+  // ...
+}
+```
+
+### Memoizing a dependency of another Hook
+
+```ts
+// 假设这个visibleItems依赖一个直接在组件内部创建的对象
+function Dropdown({ allItems, text }) {
+
+  // 当这个这个组件Dropdown重新渲染时，所有组件内部的代码都会重新执行，因此
+  // searchOptions每一次都是不同的新对象，就会导致每次都要重新计算searchItems
+  const searchOptions = { matchMode: 'whole-word', text };
+
+  const visibleItems = useMemo(() => {
+    return searchItems(allItems, searchOptions);
+  }, [allItems, searchOptions]); 
+  // ...
+}
+
+// fix
+function Dropdown({ allItems, text }) {
+  
+  // text改变时，才会创建一个新对象
+  const searchOptions = useMemo(() => {
+    return { matchMode: 'whole-word', text };
+  }, [text]);
+
+  const visibleItems = useMemo(() => {
+    return searchItems(allItems, searchOptions);
+  }, [allItems, searchOptions]);
+  // ...
+}
+
+// better fix
+function Dropdown({ allItems, text }) {
+  const visibleItems = useMemo(() => {
+    const searchOptions = { matchMode: 'whole-word', text };
+    return searchItems(allItems, searchOptions);
+  }, [allItems, text]);
+  // ...
+}
+```
+
+### Memoizing a function
+
+```ts
+function ProductPage({ productId, referrer }) {
+  // 和对象一样，每次组件渲染时，这个函数都会重新声明，每一次渲染都是一个新的函数
+  // 由于Form是被memo包裹的，当这个函数不变时是不会重新渲染的
+  function handleSubmit(orderDetails) {
+    post('/product/' + productId + '/buy', {
+      referrer,
+      orderDetails
+    });
+  }
+
+  // 假设这个Form组件是包裹在一个memo内的，这是传递了一个函数给它
+  return <Form onSubmit={handleSubmit} />;
+}
+
+
+// fix
+function Page({ productId, referrer }) {
+  // 将这个函数通过useMemo包裹
+  const handleSubmit = useMemo(() => {
+    return (orderDetails) => {
+      post('/product/' + productId + '/buy', {
+        referrer,
+        orderDetails
+      });
+    };
+  }, [productId, referrer]);
+
+  return <Form onSubmit={handleSubmit} />;
+}
+```
+
+## 3. Troubleshooting 
+
+### My calculation runs twice on every re-render
+
+>严格模式下开发环境的行为，略
+
+### My useMemo call is supposed to return an object, but returns undefined
+
+>JS箭头函数返回对象的简写语法问题，略
+
+### Every time my component renders, the calculation in useMemo re-runs
+
+>确保是否写了依赖项数组，略
+
+### I need to call useMemo for each list item in a loop, but it’s not allowed
+
+>不能在循环中直接调用`Hooks`
+
+```ts
+function ReportList({ items }) {
+  return (
+    <article>
+      {items.map(item => {
+        // You can't call useMemo in a loop like this:
+        const data = useMemo(() => calculateReport(item), [item]);
+        return (
+          <figure key={item.id}>
+            <Chart data={data} />
+          </figure>
+        );
+      })}
+    </article>
+  );
+}
+
+// fix
+function ReportList({ items }) {
+  return (
+    <article>
+      {items.map(item =>
+        <Report key={item.id} item={item} />
+      )}
+    </article>
+  );
+}
+
+// 把Report提取出来作为一个组件，缓存每一次的计算结果
+function Report({ item }) {
+  // Call useMemo at the top level:
+  const data = useMemo(() => calculateReport(item), [item]);
+  return (
+    <figure>
+      <Chart data={data} />
+    </figure>
+  );
+}
+
+// better fix
+function ReportList({ items }) {
+  // ...
+}
+
+// 直接缓存Report组件，当依赖项item没有发生变化时跳过重新渲染
+const Report = memo(function Report({ item }) {
+  const data = calculateReport(item);
+  return (
+    <figure>
+      <Chart data={data} />
+    </figure>
+  );
+});
+```
+
+## 4. 一句话总结用法
+
+>`useMemo`接受两个参数，第一个参数是函数，会调用这个函数然后把其返回值缓存起来，第二个参数是依赖项数组(确保这些依赖在这个函数中使用)，`React`通过`Object.is`去比较依赖项的变化，如果没有发生变化，就不会重新调用这个函数。
