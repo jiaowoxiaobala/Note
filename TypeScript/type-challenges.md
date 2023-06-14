@@ -2,32 +2,95 @@
 
 ## easy
 
+### Pick
+
+>从类型`T`中选出符合`K`的属性，构造一个新的类型。
+
+```ts
+// K extends keyof T泛型约束
+type MyPick<T, K extends keyof T> = {
+  [k in K]: T[k]
+}
+```
+
+### Readonly
+
+>泛型 `Readonly<T>`会接收一个 泛型参数，并返回一个完全一样的类型，只是所有属性都会是只读 (readonly) 的
+
+```ts
+type MyReadonly<T> = {
+  // keyof T取T的所有键值，返回一个组成的联合类型
+  // in取联合类型的每一个值
+  readonly [K in keyof T]: T[K]
+}
+```
+
 ### Tuple to Object
 
 >传入一个元组类型，将这个元组类型转换为对象类型，这个对象类型的键/值都是从元组中遍历出来。
 
 ```typescript
-ts中遍历数组的方式 数组[number]
-
+// 元组[number]相当于遍历元组的每一项，组成一个联合类型
 type TupleToObject<T extends readonly (string|number)[]> = {
   [K in T[number]]: K
 }
 ```
+
+### First of Array
+
+>实现一个`First<T>`泛型，它接受一个数组`T`并返回它的第一个元素的类型。
+
+```ts
+type First<T extends any[]> = T extends [] ? never : T[0]
+
+// 数组类型可以索引取值
+type First<T extends any[]> = T['length'] extends 0 ? never : T[0]
+
+type First<T extends any[]> = T extends [infer A, ...infer rest] ? A : never
+```
+
+### Length of Tuple
+
+>创建一个`Length`泛型，这个泛型接受一个只读的元组，返回这个元组的长度
+
+```ts
+// 数组['length']返回number类型
+// 元组['length']返回具体的数字字面量类型
+type Length<T extends readonly unknown[]> = T['length']
+```
+
+### Exclude
+
+
+### Awaited
+
+
+### If
+
+
+### Concat
 
 ### Includes 
 
 >在类型系统里实现 JavaScript 的 `Array.includes` 方法，这个类型接受两个参数，返回的类型要么是 `true` 要么是 `false`。
 
 ```typescript
-两个条件类型判断相关性的时候会判断右边部分是否相等
+// 两个条件类型判断相关性的时候会判断右边部分是否相等
 
-如果是两个条件类型 T1 extends U1 ? X1 : Y1 和 T2 extends U2 ? X2 : Y2 相关的话，那 T1 和 T2 相关、X1 和 X2 相关、Y1 和 Y2 相关，而 U1 和 U2 相等。
+// 如果是两个条件类型 T1 extends U1 ? X1 : Y1 和 T2 extends U2 ? X2 : Y2 相关的话，那 T1 和 T2 相关、X1 和 X2 相关、Y1 和 Y2 相关，而 U1 和 U2 相等。
 
 type IsEqual<T, U> = (<X>() => X extends T ? 1 : 2) extends (<X>() => X extends U ? 1 : 2) ? true : false
 
 type Includes<T extends readonly any[], U> = T extends [infer First, ...infer Rest] ? IsEqual<First, U> extends true ? true : Includes<Rest, U> : false
 ```
 
+### Push
+
+
+### Unshift
+
+
+### Parameters
 
 ## medium
 

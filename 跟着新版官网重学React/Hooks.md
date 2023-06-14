@@ -203,10 +203,114 @@ function useRouter() {
 
 >不能在循环中直接调用Hook。
 
+## 4.一句话总结用法
+
+>`useCallback`接受两个参数，第一个参数是函数，会把这个函数缓存起来（不会调用），第二个参数是依赖项数组(确保这些依赖在这个函数中使用)，`React`通过`Object.is`去比较依赖项的变化，如果没有发生变化，在下次渲染期间返回的函数是相同的，需要配合`memo`一起使用。
 
 ## [useContext](https://react.dev/reference/react/useContext)
 
-todo
+>用于读取和订阅组件中的上下文信息。
+
+```react
+const value = useContext(SomeContext)
+```
+
+## 1.Reference
+
+### Parameters
+
+- `SomeContext`：这个`context`是先前用`createContext`创建的，`context`本身不包含信息，只代表你能从组件中提供或者读取的信息类型。
+
+### Return
+
+>给调用的组件返回`context`的值，这个值是该组件上方最近的`SomeContext.Provider`的值，如果没有这样的`Provider`，那么返回值就是传递给`createContext`的`defaultValue`。这个值始终是最新的，`React`会自动重新渲染组件当读到某些`context`发生变化。
+
+### Caveats
+
+- `useContext`的调用不会受到相同组件返回的`provider`的影响，相应的`Context.Provider`需要位于调用`useContext`的组件上面。
+- 从`provider`接收到不同的值开始，`React`会自动重新渲染使用了该特定`context`的所有子组件，通过`Object.is`来比较新值和旧值，使用`memo`来跳过重新渲染不会妨碍子组件接受到新的`context`的值。
+- 只有在用于传递`context`的`SomeContext `和用于读取数据的`SomeContext`是完全相同的对象时才有效，通过`===`全等进行比较。
+
+## 2. Usage
+
+### Passing data deeply into the tree
+>`useContext`返回向`context`传递的值，为了确认`context`的值，`React`会搜索组件树，为这个特定的`context`向上查找最近的`Context.Privder`。
+
+```ts
+// useContext需要和createContext配合使用
+import { createContext, useContext } from 'react';
+
+// createContext接受一个值作为context的默认值，返回一个上下文对象
+const ThemeContext = createContext(null);
+
+export default function MyApp() {
+  return (
+    // 为包裹的组件提供上下文
+    <ThemeContext.Provider value="dark">
+      <Form />
+    </ThemeContext.Provider>
+  )
+}
+
+function Form() {
+  return (
+    <Panel title="Welcome">
+      <Button>Sign up</Button>
+      <Button>Log in</Button>
+    </Panel>
+  );
+}
+
+function Panel({ title, children }) {
+  const theme = useContext(ThemeContext);
+  const className = 'panel-' + theme;
+  return (
+    <section className={className}>
+      <h1>{title}</h1>
+      {children}
+    </section>
+  )
+}
+
+// 不管这个Button和provider之间嵌套多深，它都能接收到theme
+function Button({ children }) {
+  // 读取上下文信息
+  const theme = useContext(ThemeContext);
+  const className = 'button-' + theme;
+  return (
+    <button className={className}>
+      {children}
+    </button>
+  );
+}
+```
+
+### Updating data passed via context
+>通过与`state`结合，让`context`的值成为响应式的。
+
+```ts
+function MyPage() {
+  // 在组件内部声明一个状态变量theme
+  const [theme, setTheme] = useState('dark');
+  return (
+    // 将这个状态变量作为context value传递给provider
+    <ThemeContext.Provider value={theme}>
+      <Form />
+
+      // 当点击按钮触发state变化时，所有使用该provider提供的context value的子组件都会重新渲染
+      <Button onClick={() => {
+        setTheme('light');
+      }}>
+       Switch to light theme
+      </Button>
+    </ThemeContext.Provider>
+  );
+}
+```
+
+### Specifying a fallback default value 
+
+
 
 
 ## [useState](https://react.dev/reference/react/useState)
@@ -759,4 +863,8 @@ const Report = memo(function Report({ item }) {
 
 ## 4. 一句话总结用法
 
->`useMemo`接受两个参数，第一个参数是函数，会调用这个函数然后把其返回值缓存起来，第二个参数是依赖项数组(确保这些依赖在这个函数中使用)，`React`通过`Object.is`去比较依赖项的变化，如果没有发生变化，就不会重新调用这个函数。
+>`useMemo`接受两个参数，第一个参数是函数，会调用这个函数然后把其返回值缓存起来，第二个参数是依赖项数组(确保这些依赖在这个函数中使用)，`React`通过`Object.is`去比较依赖项的变化，如果没有发生变化，缓存的结果和上次渲染期间是相同的；否则会重新调用这个函数，获取最新的返回值缓存起来。
+
+## useRef
+
+// todo
