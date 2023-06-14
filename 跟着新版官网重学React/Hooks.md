@@ -1,6 +1,6 @@
 # Hooks系列
 
-文档结构尽量保持和官方文档一致
+文档目录结构保持和官方文档一致，例子全部来自官网。
 
 ## [useCallback](https://react.dev/reference/react/useCallback)
 
@@ -76,13 +76,137 @@ function useCallback(fn, dependencies) {
 
 ### Updating state from a memoized callback
 
+>有些时候在一个缓存函数里，需要基于上一次状态去更新状态。
+
 ```ts
+function TodoList() {
+  const [todos, setTodos] = useState([]);
 
+  const handleAddTodo = useCallback((text) => {
+    const newTodo = { id: nextId++, text };
+    setTodos([...todos, newTodo]);
+  }, [todos]);
+  // ...
+}
 
+function TodoList() {
+  const [todos, setTodos] = useState([]);
+
+  // 通常都想要尽可能少的依赖，这种情况下可以去掉依赖
+  const handleAddTodo = useCallback((text) => {
+    const newTodo = { id: nextId++, text };
+    setTodos(todos => [...todos, newTodo]);
+  }, []); // No need for the todos dependency
+  // ...
+}
 ```
+
+### Preventing an Effect from firing too often
+
+>有些时候可能需要在`Effect`中调用一个函数
+
+```ts
+function ChatRoom({ roomId }) {
+  const [message, setMessage] = useState('');
+
+  function createOptions() {
+    return {
+      serverUrl: 'https://localhost:1234',
+      roomId: roomId
+    };
+  }
+
+  // 这里有个问题，每个响应值都必须声明为Effect的依赖项
+  // 然而如果声明了createOptions作为依赖项，这会造成不断重新连接这个chat room
+  useEffect(() => {
+    const options = createOptions();
+    const connection = createConnection();
+    connection.connect();
+    // ...
+  })
+}
+
+// fix
+function ChatRoom({ roomId }) {
+  const [message, setMessage] = useState('');
+
+  // 将这个函数用useCallback包裹，确保它在重新渲染期间当roomId是相同时
+  // 它也是相同的
+  const createOptions = useCallback(() => {
+    return {
+      serverUrl: 'https://localhost:1234',
+      roomId: roomId
+    };
+  }, [roomId]); //  Only changes when roomId changes
+
+  useEffect(() => {
+    const options = createOptions();
+    const connection = createConnection();
+    connection.connect();
+    return () => connection.disconnect();
+  }, [createOptions]); // Only changes when createOptions changes
+  // ...
+}
+
+// better fix
+function ChatRoom({ roomId }) {
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    function createOptions() { // No need for useCallback or function dependencies!
+      return {
+        serverUrl: 'https://localhost:1234',
+        roomId: roomId
+      };
+    }
+
+    const options = createOptions();
+    const connection = createConnection();
+    connection.connect();
+    return () => connection.disconnect();
+  }, [roomId]); // Only changes when roomId changes
+  // ...
+}
+```
+
+### Optimizing a custom Hook
+
+>如果需要写自定义Hook，推荐将它返回的函数都用`useCallback`包裹。
+
+```ts
+function useRouter() {
+  const { dispatch } = useContext(RouterStateContext);
+
+  const navigate = useCallback((url) => {
+    dispatch({ type: 'navigate', url });
+  }, [dispatch]);
+
+  const goBack = useCallback(() => {
+    dispatch({ type: 'back' });
+  }, [dispatch]);
+
+  // 这可以确保使用这个Hook时，可以在需要的时候优化代码
+  return {
+    navigate,
+    goBack,
+  };
+}
+```
+
+## 3. Troubleshooting 
+
+### Every time my component renders, useCallback returns a different function
+
+>确保是否写了依赖项数组，略。
+
+### I need to call useCallback for each list item in a loop, but it’s not allowed
+
+>不能在循环中直接调用Hook。
 
 
 ## [useContext](https://react.dev/reference/react/useContext)
+
+todo
 
 
 ## [useState](https://react.dev/reference/react/useState)
