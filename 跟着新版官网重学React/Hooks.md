@@ -308,9 +308,206 @@ function MyPage() {
 }
 ```
 
-### Specifying a fallback default value 
+```ts
+import { createContext, useContext, useState } from 'react';
 
+const CurrentUserContext = createContext(null);
 
+export default function MyApp() {
+  const [currentUser, setCurrentUser] = useState(null);
+  return (
+
+    // 通过context传递一个对象
+    <CurrentUserContext.Provider
+      value={{
+        currentUser,
+        setCurrentUser
+      }}
+    >
+      <Form />
+    </CurrentUserContext.Provider>
+  );
+}
+
+function Form({ children }) {
+  return (
+    <Panel title="Welcome">
+      <LoginButton />
+    </Panel>
+  );
+}
+
+function LoginButton() {
+  const {
+    currentUser,
+    setCurrentUser
+  } = useContext(CurrentUserContext);
+
+  if (currentUser !== null) {
+    return <p>You logged in as {currentUser.name}.</p>;
+  }
+
+  return (
+    <Button onClick={() => {
+      setCurrentUser({ name: 'Advika' })
+    }}>Log in as Advika</Button>
+  );
+}
+
+function Panel({ title, children }) {
+  return (
+    <section className="panel">
+      <h1>{title}</h1>
+      {children}
+    </section>
+  )
+}
+
+function Button({ children, onClick }) {
+  return (
+    <button className="button" onClick={onClick}>
+      {children}
+    </button>
+  );
+}
+```
+
+### Specifying a fallback default value
+>如果`React`没有在父组件树中找到该特定`context`的任何`provider`，`useContext`返回的值就是在`creatContext`时指定的默认值。
+
+- 略
+
+### Overriding context for a part of the tree
+
+>可以根据需要嵌套和覆盖`provider`。
+
+```ts
+import { createContext, useContext } from 'react';
+
+const ThemeContext = createContext(null);
+
+export default function MyApp() {
+  return (
+    <ThemeContext.Provider value="dark">
+      <Form />
+    </ThemeContext.Provider>
+  )
+}
+
+function Form() {
+  return (
+    <Panel title="Welcome">
+      // 这个Button组件内部读到的context value 是dark
+      <Button>Sign up</Button>
+      <Button>Log in</Button>
+      // 在Form组件里内部又嵌套了一个provider
+      <ThemeContext.Provider value="light">
+        // 这里的Fotter组件内部读到的context value是light
+        <Footer />
+      </ThemeContext.Provider>
+    </Panel>
+  );
+}
+
+function Footer() {
+  return (
+    <footer>
+      <Button>Settings</Button>
+    </footer>
+  );
+}
+
+function Panel({ title, children }) {
+  const theme = useContext(ThemeContext);
+  const className = 'panel-' + theme;
+  return (
+    <section className={className}>
+      {title && <h1>{title}</h1>}
+      {children}
+    </section>
+  )
+}
+
+function Button({ children }) {
+  const theme = useContext(ThemeContext);
+  const className = 'button-' + theme;
+  return (
+    <button className={className}>
+      {children}
+    </button>
+  );
+}
+```
+
+### Optimizing re-renders when passing objects and functions
+>可以给`context`传递任何值，包括对象和函数。
+
+```ts
+function MyApp() {
+  const [currentUser, setCurrentUser] = useState(null);
+
+  function login(response) {
+    storeCredentials(response.credentials);
+    setCurrentUser(response.user);
+  }
+
+  return (
+    // 这里 context value是一个具有两个属性的对象，其中一个是函数
+    // 每当MyApp组件重新渲染时，这个对象都会是一个不同的对象
+    // 因此React还会重新渲染组件树中所有调用useContext的组件
+    <AuthContext.Provider value={{ currentUser, login }}>
+      <Page />
+    </AuthContext.Provider>
+  );
+}
+
+// fix
+import { useCallback, useMemo } from 'react';
+
+function MyApp() {
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // 通过useCallback包裹，并声明空的依赖项数组，表示这个函数永远都是同一个
+  const login = useCallback((response) => {
+    storeCredentials(response.credentials);
+    setCurrentUser(response.user);
+  }, []);
+
+  // 通过useMemo包裹，只有在login和currentUser发生变化后，才会返回一个新的对象
+  const contextValue = useMemo(() => ({
+    currentUser,
+    login
+  }), [currentUser, login]);
+
+  return (
+    <AuthContext.Provider value={contextValue}>
+      <Page />
+    </AuthContext.Provider>
+  );
+}
+```
+
+## 3. Troubleshooting
+
+### My component doesn’t see the value from my provider
+
+- 在调用`useContext()`的同一组件（或下层）渲染`<SomeContext.Provider>`。
+- 可能忘记使用`<SomeContext.Provider>`包装组件，或者可能将组件放在组件树的不同部分。
+- 工具问题，略。
+
+### I am always getting undefined from my context although the default value is different
+
+- 可能在组件树中有一个没有设置`value`的`provider`。只有在上层没有匹配到`provider`时，才会使用`createContext`的默认值，如果存在`<SomeContext.Provider>`在上层，调用`useContext`的组件会接收到`undefined`作为context的值。
+
+```ts
+// 如果没有传递value，相当于value={undefined}
+<ThemeContext.Provider>
+   <Button />
+</ThemeContext.Provider>
+```
+
+## 4一句话总结用法
+>`useContext`是一种跨组件通信的方式，需要配合`createContext`使用，通过`createContext`创建一个上下文，然后用它返回的上下文对象的`provider`包裹需要接收上下文的所有组件，在这些组件中使用`useContext`就可以获取到传递上下文的值。
 
 
 ## [useState](https://react.dev/reference/react/useState)

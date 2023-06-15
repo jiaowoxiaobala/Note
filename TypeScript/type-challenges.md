@@ -61,9 +61,15 @@ type Length<T extends readonly unknown[]> = T['length']
 
 ### Exclude
 
+```ts
+
+```
 
 ### Awaited
 
+```ts
+
+```
 
 ### If
 
