@@ -768,11 +768,50 @@ type IsTuple<T> = [T] extends [never]
 ### Fill
 
 ```typescript
+// 思路1：新建数组，遍历原数组，挨个添加进新数组
+type Fill<
+  T extends unknown[],
+  N,
+  Start extends number = 0,
+  End extends number = T["length"],
+  Count extends unknown[] = [],
+  R extends unknown[] = [],
+  Flag = Count["length"] extends End
+    ? false
+    : Count["length"] extends Start
+    ? true
+    : false
+> = T extends [infer F, ...infer Rest]
+  ? Flag extends true
+    // [...Count, unknown]["length"] extends End这里是给计数加1，因为不包含End
+    ? Fill<Rest, N, Start, End, [...Count, unknown], [...R, N], [...Count, unknown]["length"] extends End ? false : Flag>
+    : Fill<Rest, N, Start, End, [...Count, unknown], [...R, F]>
+  : R;
 
+
+// 思路2：直接在原数组上修改
+type Fill<
+  T extends unknown[],
+  N,
+  Start extends number = 0,
+  End extends number = T["length"],
+  // 计数
+  Count extends any[] = [],
+  // 标识当前成员是否需要被替换
+  Flag extends boolean = Count["length"] extends Start ? true : false
+> = Count["length"] extends End
+  ? T
+  : T extends [infer R, ...infer U]
+  ? Flag extends false
+    // 不用替换就直接把原成员添加
+    ? [R, ...Fill<U, N, Start, End, [...Count, 0]>]
+    // 否则添加替换的
+    : [N, ...Fill<U, N, Start, End, [...Count, 0], Flag>]
+  : T;
 ```
 
 ### Trim Right
-实现`TrimRight<T>`，它接收确定的字符串类型并返回一个新的字符串，其中新返回的字符串删除了原字符串结尾的空白字符串
+>实现`TrimRight<T>`，它接收确定的字符串类型并返回一个新的字符串，其中新返回的字符串删除了原字符串结尾的空白字符串
 
 ```typescript
 type Space = " " | "\t" | "\n";
@@ -782,8 +821,8 @@ type TrimRight<T extends string> = T extends `${infer R}${Space}`
   : T;
 ```
 
-### 去除数组指定元素
-接收数组类型的`T`和数字或数组类型的`U`为参数，会返回一个去除`U`中元素的数组`T`
+### Without 
+>接收数组类型的`T`和数字或数组类型的`U`为参数，会返回一个去除`U`中元素的数组`T`
 
 ```typescript
 type ToUnion<T> = T extends any[] ? T[number] : T;
@@ -902,51 +941,41 @@ type ConstructTuple<
 ```
 
 ### Number Range
-
-```typescript
-
-```
-
-### CheckRepeatedChars
-判断一个`string`类型中是否有相同的字符
-
-```typescript
-type CheckRepeatedChars<T extends string> =
-  // 匹配第一个子字符X和后面所有的子字符Y
-  T extends `${infer X}${infer Y extends string}`
-    ? // 通过字符Y去匹配是否存在子字符X，如果存在则有重复
-      Y extends `${infer A}${X}${infer B}`
-      ? true
-      : CheckRepeatedChars<Y>
-    : false;
-```
-
-### 整数
-请完成类型`Integer<T>`，类型`T`继承于`number`，如果`T`是一个整数则返回它，否则返回`never`
+>实现一个类型`NumberRange`，接受两个数字类型`L`,`T`，取出`L`和`T`之间的数（包含它们本身。
 
 ```ts
-// 思路：转成字符串类型去匹配是否存在小数点
-type Integer<T extends string | number> = number extends T
-  ? never
-  : `${T}` extends `${string}.${string}`
-  ? never
-  : T;
-```
-
-### DeepMutable
-深度可修改，与深度只读相反
-
-```ts
-// keyof (...arg: any) => any为never，这里过滤掉函数类型
-type DeepMutable<T extends Record<keyof any, any>> = keyof T extends never
+type NewArray<L extends number, T extends number[] = []> = T["length"] extends L
   ? T
-  : {
-      -readonly [K in keyof T]: DeepMutable<T[K]>;
-    };
+  : NewArray<L, [...T, 0]>;
+
+type Decrease<N extends number> = NewArray<N> extends [0, ...infer R]
+  ? R["length"]
+  : N;
+
+// 减法的思路：不断用H联合H - 1，直到L和H"相等"
+type NumberRange<L extends number, H extends number> = L extends H
+  ? L | H
+  : NumberRange<L, H | Decrease<H>>;
+
+
+// 加法的思路，因为H是大于L的，定义一个数组T，每次给T的长度+1，当T的长度"等于"L时，每次把T的长度添加进U
+type NumberRange<
+  L extends number,
+  H extends number,
+  T extends number[] = [],
+  U extends number[] = [],
+  // 由于不知道T的长度什么时候"等于"L，定义一个布尔值类型Flag，做标记
+  Flag = T["length"] extends L ? true : false
+> = Flag extends true
+  ? // T的长度"等于"H时，结束递归
+    T["length"] extends H
+    ? T["length"] | U[number]
+    : NumberRange<L, H, [...T, 0], [...U, T["length"]], Flag>
+  : NumberRange<L, H, [...T, 0]>;
 ```
 
-### 组合键类型 Combination key type
-把多个修饰键两两组合，但不可以出现相同的修饰键组合。提供的`ModifierKeys`中，前面的值比后面的值高
+### Combination
+>把多个修饰键两两组合，但不可以出现相同的修饰键组合。提供的`ModifierKeys`中，前面的值比后面的值高。
 
 ```ts
 // never会被联合类型过滤，所以U的默认值给到never
@@ -966,6 +995,112 @@ type Combs<T extends string[]> = T extends [
 ]
   ? `${F} ${R[number]}` | Combs<R>
   : never;
+```
+
+
+### Subsequence
+todo
+
+
+
+### CheckRepeatedChars
+>判断一个`string`类型中是否有相同的字符
+
+```typescript
+type CheckRepeatedChars<T extends string> =
+  // 匹配第一个子字符X和后面所有的子字符Y
+  T extends `${infer X}${infer Y extends string}`
+    ? // 通过字符Y去匹配是否存在子字符X，如果存在则有重复
+      Y extends `${infer A}${X}${infer B}`
+      ? true
+      : CheckRepeatedChars<Y>
+    : false;
+```
+
+
+### GetMiddleElement
+>通过实现一个`GetMiddleElement`方法，获取数组的中间元素，用数组表示。如果数组的长度为奇数，则返回中间一个元素 如果数组的长度为偶数，则返回中间两个元素
+
+```ts
+// 思路：遍历数组不断去掉开头和结尾的两个成员
+type GetMiddleElement<T extends unknown[]> = T extends [
+  infer F,
+  ...infer R,
+  infer L
+]
+  ? // 当R为空数组时，T的长度为偶数，此时[F,L]就是中间两个成员
+    R["length"] extends 0
+    ? [F, L]
+    : // 当R无法匹配[infer F, ...infer R, infer L]时，证明T是奇数长度，此时R为中间那个元素
+      GetMiddleElement<R>
+  : T;
+
+
+type GetMiddleElement<T extends any[]> = T["length"] extends 0 | 1 | 2
+  ? T
+  : T extends [any, ...infer M, any]
+  ? GetMiddleElement<M>
+  : never;
+```
+
+
+### Appear only once
+
+>找出目标数组中只出现过一次的元素。例如：输入[1,2,2,3,3,4,5,6,6,6]，输出[1,4,5]
+
+```ts
+// 声明两个类型变量，U存储重复的成员，S存储不重复的成员
+type FindEles<
+  T extends unknown[],
+  U extends unknown[] = [],
+  S extends unknown[] = []
+> = T extends [infer F, ...infer R]
+  ? // 因为每次遍历都会去掉一个成员，所以需要判断这个成员在不在R和U中
+    // 假设T = [1, 1, 2]，遍历到第2个1时，F = 1, R = [2]，U = [1]
+    F extends [...R, ...U][number]
+    ? FindEles<R, [...U, F], S>
+    : FindEles<R, U, [...S, F]>
+  : S;
+
+
+// 另一种思路：把重复的元素不断组合成联合类型Duplicates
+type FindEles<T extends unknown[], Duplicates = never> = T extends [
+  infer F,
+  ...infer R
+]
+  ? F extends Duplicates
+    ? FindEles<R, Duplicates>
+    : F extends R[number]
+    ? FindEles<R, Duplicates | F>
+    : [F, ...FindEles<R, Duplicates>]
+  : [];
+```
+
+### Integer 
+>请完成类型`Integer<T>`，类型`T`继承于`number`，如果`T`是一个整数则返回它，否则返回`never`
+
+```ts
+// 思路：转成字符串类型去匹配是否存在小数点
+type Integer<T extends string | number> = number extends T
+  ? never
+  : `${T}` extends `${string}.${string}`
+  ? never
+  : T;
+```
+
+### ToPrimitive 
+todo
+
+### DeepMutable
+深度可修改，与深度只读相反
+
+```ts
+// keyof (...arg: any) => any为never，这里过滤掉函数类型
+type DeepMutable<T extends Record<keyof any, any>> = keyof T extends never
+  ? T
+  : {
+      -readonly [K in keyof T]: DeepMutable<T[K]>;
+    };
 ```
 
 ### All
@@ -1015,7 +1150,10 @@ type Filter<T extends unknown[], P> = T extends [infer F, ...infer R]
   : [];
 ```
 
+
 ### ReplaceFirst
+
+>实现类型`ReplaceFirst<T, S, R>`，它将用`R`替换元组`T`中第一次出现的`S`。如果`T`中不存在这样的`S`，则结果应为`T`。
 
 ```typescript
 type ReplaceFirst<
@@ -1031,7 +1169,7 @@ type ReplaceFirst<
       ReplaceFirst<Rest, S, R, [...U, F]>
   : U;
 
-// 思路2：
+// 另一种解法
 type ReplaceFirst<T extends readonly unknown[], S, R> = T extends readonly [
   infer F,
   ...infer Rest
@@ -1042,6 +1180,7 @@ type ReplaceFirst<T extends readonly unknown[], S, R> = T extends readonly [
   : [];
 ```
 ### Transpose
+>
 
 ```ts
 type Array<N extends number, T extends unknown[] = []> = T["length"] extends N
@@ -1082,13 +1221,11 @@ type Transpose<M extends number[][],R = M['length'] extends 0?[]:M[0]> = {
 }
 ```
 
-
-
-
-
+### JSON Schema to TypeScript
+todo
 
 ### Square
-Given a number, your type should return its square.
+>给定一个数组，返回它的平方。
 
 ```ts
 type Abs<N extends number> = `${N}` extends `-${infer T extends number}`
@@ -1163,7 +1300,7 @@ type CartesianProduct<T, U> = T extends T
 
 ### MergeAll
 
-合并两个对象，如果键重叠，则将键值合并成一个联合类型
+>合并两个对象，如果键重叠，则将键值合并成一个联合类型。
 
 ```ts
 // merge two objects
@@ -1187,7 +1324,7 @@ type MergeAll<T, O = {}> = T extends [infer F, ...infer R]
 
 
 ### CheckRepeatedTuple
-判断一个元组类型中是否有相同的成员
+>判断一个元组类型中是否有相同的成员。
 
 ```typescript
 type IsEqual<A, B> = (<X>() => X extends A ? 1 : 2) extends <X>() => X extends B
@@ -1216,6 +1353,10 @@ type CheckRepeatedTuple<T extends unknown[]> = number extends T["length"]
       CheckRepeatedTuple<Rest>
   : false;
 
-
-type CheckRepeatedTuple<T extends unknown[]> = T extends [infer L, ...infer R] ? L extends R[number] ? true : CheckRepeatedTuple<R> : false
+// 另一种解法
+type CheckRepeatedTuple<T extends unknown[]> = T extends [infer L, ...infer R]
+  ? L extends R[number]
+    ? true
+    : CheckRepeatedTuple<R>
+  : false;
 ```
