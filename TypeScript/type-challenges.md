@@ -61,20 +61,48 @@ type Length<T extends readonly unknown[]> = T['length']
 
 ### Exclude
 
-```ts
+>实现内置的`Exclude<T, U>`类型。
 
+```ts
+// 当条件类型左边泛型参数是联合类型时会触发分布式条件类型
+// MyExclude<1 | 2, 1> -> MyExclude<1, 1> | MyExclude<2, 1>
+type MyExclude<T, U> = T extends U ? never : T
 ```
 
 ### Awaited
 
-```ts
+>假如我们有一个`Promise`对象，这个`Promise`对象会返回一个类型。在`TS`中，我们用`Promise`中的`T` 来描述这个`Promise`返回的类型。请你实现一个类型，可以获取这个类型。
 
+```ts
+type PromiseLike<T> = {
+  then: (onfulfilled: (arg: T) => unknown) => unknown
+}
+
+// 用infer推导出Promise的参数类型，如果推导出来的仍然是Promise，则递归
+type MyAwaited<T extends Promise<unknown> | PromiseLike<unknown>> = T extends PromiseLike<infer U>
+  ? U extends PromiseLike<any>
+    ? MyAwaited<U>
+    : U
+  : T
 ```
 
 ### If
 
+>实现一个`IF`类型，它接收一个条件类型`C` ，一个判断为真时的返回类型`T` ，以及一个判断为假时的返回类型`F`。 `C`只能是`true`或者`false`， `T`和`F`可以是任意类型。
+
+```ts
+type If<C extends boolean, T, F> = C extends true ? T : F
+```
+
 
 ### Concat
+
+>在类型系统里实现`JavaScript`内置的`Array.concat`方法，这个类型接受两个参数，返回的新数组类型应该按照输入参数从左到右的顺序合并为一个新的数组。
+
+```ts
+// TS中也可以通过JS中的扩展运算符，把数组类型平铺
+type Concat<T extends readonly unknown[], U extends readonly unknown[]> = [...T, ...U]
+```
 
 ### Includes 
 
@@ -87,16 +115,39 @@ type Length<T extends readonly unknown[]> = T['length']
 
 type IsEqual<T, U> = (<X>() => X extends T ? 1 : 2) extends (<X>() => X extends U ? 1 : 2) ? true : false
 
-type Includes<T extends readonly any[], U> = T extends [infer First, ...infer Rest] ? IsEqual<First, U> extends true ? true : Includes<Rest, U> : false
+type Includes<T extends readonly any[], U> = T extends [infer First, ...infer Rest]
+  ? IsEqual<First, U> extends true
+    ? true
+    : Includes<Rest, U>
+  : false
 ```
 
 ### Push
 
+>在类型系统里实现通用`Array.push`。
+
+```ts
+// 平铺数组类型T，再把U加到后面
+type Push<T extends unknown[], U> = [...T, U]
+```
 
 ### Unshift
 
+>实现类型版本的`Array.unshift`。
+
+```ts
+// 平铺数组类型T，再把U加到前面
+type Unshift<T extends unknown[], U> = [U, ...T]
+```
 
 ### Parameters
+
+>实现内置的`Parameters`类型。
+
+```ts
+// 通过infer推导出参数的类型
+type MyParameters<T extends (...args: any[]) => any> = T extends (...args: infer U) => any ? U : T
+```
 
 ## medium
 
@@ -105,7 +156,7 @@ type Includes<T extends readonly any[], U> = T extends [infer First, ...infer Re
 >不使用`ReturnType`实现`TypeScript`的`ReturnType<T>`泛型。
 
 ```ts
-// infer可以声明一个临时的类型"变量"
+// infer可以声明一个临时的类型"变量", 通过infer推导出返回值的类型
 type MyReturnType<T> = T extends (...any: any[]) => infer ReturnType
   ? ReturnType
   : T
@@ -113,18 +164,31 @@ type MyReturnType<T> = T extends (...any: any[]) => infer ReturnType
 
 ### Omit
 
-不使用 `Omit` 实现 TypeScript 的 `Omit<T, K>` 泛型。`Omit` 会创建一个省略 `K` 中字段的 `T` 对象。
+>不使用 `Omit` 实现 TypeScript 的 `Omit<T, K>` 泛型。`Omit` 会创建一个省略 `K` 中字段的 `T` 对象。
 
 ```typescript
 type MyOmit<T extends object, KS extends keyof T> = {
-  // 重映射，约束K
+  // 重映射，约束K，如果K不是KS的子类型，则舍弃
   [K in keyof T as K extends KS ? never : K]: T[K]
 }
 ```
 
+### Readonly 2
+
+>实现一个通用`MyReadonly2<T, K>`，它带有两种类型的参数`T`和`K`。`K`指定应设置为`Readonly`的`T`的属性集。如果未提供`K`，则应使所有属性都变为只读，就像普通的`Readonly<T>`一样。
+
+```typescript
+// 把K中的所有属性变为只读，然后合并keyof T中所有非K子类型的属性
+type MyReadonly2<T extends object, K extends keyof T = keyof T> = {
+  readonly [P in K]: T[P];
+} & {
+  [P in keyof T as P extends K ? never : P]: T[P];
+};
+```
+
 ### Deep Readonly
 
-实现一个通用的`·`DeepReadonly<T>`，它将对象的每个参数及其子对象递归地设为只读。假设在此挑战中我们仅处理对象
+>实现一个通用的`·`DeepReadonly<T>`，它将对象的每个参数及其子对象递归地设为只读。假设在此挑战中我们仅处理对象。
 
 ```typescript
 type DeepReadonly<T> = {
@@ -133,8 +197,9 @@ type DeepReadonly<T> = {
       ? T[K]
       : DeepReadonly<T[K]>
     : T[K];
-};
+}
 
+// 另一种解法：
 // keyof运算符会生成一个已知键的联合类型
 interface Fn1 {
   (params: any): any;
@@ -156,28 +221,14 @@ type DeepReadonly<T> = {
 };
 ```
 
+### Tuple to Union
 
-### 4. Readonly 2
-
-实现一个通用`MyReadonly2<T, K>`，它带有两种类型的参数`T`和`K`。`K`指定应设置为`Readonly`的`T`的属性集。如果未提供`K`，则应使所有属性都变为只读，就像普通的`Readonly<T>`一样
-
-```typescript
-// 把K中的所有属性变为只读，然后合并keyof T中所有非K子类型的属性
-type MyReadonly2<T extends object, K extends keyof T = keyof T> = {
-  readonly [P in K]: T[P];
-} & {
-  [P in keyof T as P extends K ? never : P]: T[P];
-};
-```
-
-
-### 6. 元组转合集
-
-实现泛型`TupleToUnion<T>`，它返回元组所有值的合集。
+>实现泛型`TupleToUnion<T>`，它返回元组所有值的合集。
 
 ```typescript
 // 一种思路，这个不适用于只读的元组
 type TupleToUnion<T extends unknown[]> = T extends Array<infer R> ? R : T
+
 // 按这个思路扩展
 type TupleToUnion<T extends readonly any[]> = T extends readonly (infer U)[]
   ? T extends (infer R)[]
@@ -185,38 +236,54 @@ type TupleToUnion<T extends readonly any[]> = T extends readonly (infer U)[]
     : U
   : never;
 
+// 另一种解法：
 // T[number]用于获取元组或数组类型 T 中所有元素类型的联合类型
 type TupleToUnion<T extends unknown[]> = T[number]
 ```
 
+### Chainable Options
+>在这个挑战中，你可以使用任意你喜欢的方式实现这个类型 - `Interface, Type` 或`Class`都行。你需要提供两个函数`option(key, value)`和`get()`。在`option`中你需要使用提供的`key`和`value`扩展当前的对象类型，通过`get`获取最终结果。
 
+```typescript
+type Chainable<O = {}> = {
+  // K extends keyof O ? never : K限制K不能重复，Omit<O, K> & Record<K, V>如果重复了，就取后面的K,V 
+  option<K extends string, V>(key: K extends keyof O  ? never : K, value: V): Chainable<Omit<O, K> & Record<K, V>>
+  get(): O
+}
+```
 
-### 7. 最后一个元素
+### Last of Array
 
-实现一个通用`Last<T>`，它接受一个数组T并返回其最后一个元素的类型
+>实现一个通用`Last<T>`，它接受一个数组T并返回其最后一个元素的类型。
 
 ```typescript
 // 类型的模式匹配是通过extends对类型参数做匹配，结果保存到通过infer声明的局部类型变量里，如果匹配就能从该局部变量里拿到提取出的类型
 type Last<T extends unknown[]> = T extends [...unknown[], infer L] ? L : never
 
-// 数组类型可以通过索引取指定值的类型 T[0] T['length']，另一种思路
-type Last<T extends unknown[]> = [T[0], ...T][T['length']]
+// 另一种思路：构造一个长度+1的数组，取T['length']
+type Last<T extends unknown[]> = [any, ...T][T['length']]
 ```
 
 
-
-### 8. 出栈
-实现一个通用`Pop<T>`，它接受一个数组T，并返回一个由数组T的前`length-1`项以相同的顺序组成的数组
+### Pop
+>实现一个通用`Pop<T>`，它接受一个数组T，并返回一个由数组T的前`length-1`项以相同的顺序组成的数组。
 
 ```typescript
+// infer _表示TS可以忽视这个临时类型变量
 type Pop<T> = T extends [...infer Rest, infer _] ? Rest : T;
 ```
 
+### Promise.all
+>键入函数`PromiseAll`，它接受`PromiseLike`对象数组，返回值应为`Promise<T>`，其中T是解析的结果数组。
 
+```typescript
+declare function PromiseAll<T extends unknown[]>(values: readonly [...T]):
+  Promise<{ [K in keyof T]: T[K] extends Promise<infer R> ? R : T[K] }>;
+```
 
-### 9. Type Lookup
+### Type Lookup
 
-在此挑战中，通过在联合类型`Cat | Dog`中搜索公共`type`字段来获取相应的类型
+>通过在联合类型`Cat | Dog`中搜索公共`type`字段来获取相应的类型
 
 ```typescript
 type LookUp<U, T extends string> = U extends {
@@ -237,27 +304,21 @@ type LookUp<U, T extends string> = {
   [K in T]: U extends { type: T } ? U : never;
 }[T];
 ```
-### 可串联构造器
-在这个挑战中，你可以使用任意你喜欢的方式实现这个类型 - Interface, Type 或 Class 都行。你需要提供两个函数 option(key, value) 和 get()。在 option 中你需要使用提供的`key`和`value`扩展当前的对象类型，通过`get`获取最终结果
 
-```typescript
-type Chainable<O = {}> = {
-  // K extends keyof O ? never : K限制K不能重复，Omit<O, K> & Record<K, V>如果重复了，就取后面的K,V 
-  option<K extends string, V>(key: K extends keyof O  ? never : K, value: V): Chainable<Omit<O, K> & Record<K, V>>
-  get(): O
-}
-```
+### Trim Left
 
-### Promise.all
-键入函数`PromiseAll`，它接受`PromiseLike`对象数组，返回值应为`Promise<T>`，其中T是解析的结果数组
+>实现`TrimLeft<T>`，它接收确定的字符串类型并返回一个新的字符串，其中新返回的字符串删除了原字符串开头的空白字符串。
 
-```typescript
-declare function PromiseAll<T extends unknown[]>(values: readonly [...T]):
-  Promise<{ [K in keyof T]: T[K] extends Promise<infer R> ? R : T[K] }>;
+```ts
+// 匹配空格的类型
+type Space = " " | "\n" | "\t";
+
+// 去除左侧空格
+type TrimLeft<T extends string> = T extends `${Space}${infer L}` ? TrimLeft<L> : T
 ```
 
 ### Trim
-实现`Trim<T>`，它是一个字符串类型，并返回一个新字符串，其中两端的空白符都已被删除。
+>实现`Trim<T>`，它是一个字符串类型，并返回一个新字符串，其中两端的空白符都已被删除。
 
 ```typescript
 // 匹配空格的类型
@@ -272,7 +333,7 @@ type TrimRight<T extends string> = T extends `${infer R}${Space}` ? TrimRight<R>
 // 组合在一起
 type Trim<T extends string> = TrimLeft<TrimRight<T>>
 
-// 简化
+// 另一种解法：
 type Trim<S extends string> = S extends
   | `${Space}${infer T}`
   | `${infer T}${Space}`
@@ -281,7 +342,7 @@ type Trim<S extends string> = S extends
 ```
 
 ### Capitalize
-实现`Capitalize<T>` 它将字符串的第一个字母转换为大写，其余字母保持原样
+>实现`Capitalize<T>` 它将字符串的第一个字母转换为大写，其余字母保持原样
 
 ```typescript
 // 这里的模式匹配 `${infer F}${infer R}`是把第一位子字符匹配出来，后面的R代表除第一个子字符外的所有子字符
@@ -292,7 +353,7 @@ type Capitalize<T extends string> = T extends `${infer F}${infer R}`
 
 
 ### Replace
-实现`Replace<S, From, To>`将字符串`S`中的第一个子字符串`From`替换为`To`。
+>实现`Replace<S, From, To>`将字符串`S`中的第一个子字符串`From`替换为`To`。
 
 ```typescript
 type Replace<S extends string, From extends string, To extends string> = 
@@ -305,7 +366,7 @@ type Replace<S extends string, From extends string, To extends string> =
 
 ### ReplaceAll
 
-实现`ReplaceAll<S, From, To>`将一个字符串`S`中的所有子字符串`From`替换为`To`。
+>实现`ReplaceAll<S, From, To>`将一个字符串`S`中的所有子字符串`From`替换为`To`。
 
 ```typescript
 // 加上递归即可
@@ -320,8 +381,9 @@ type ReplaceAll<
   : S;
 ```
 
-### 追加参数
-实现一个泛型`AppendArgument<Fn, A>`，对于给定的函数类型`Fn`，以及一个任意类型`A`，返回一个新的函数`G`。`G`拥有`Fn` 的所有参数并在末尾追加类型为`A`的参数。
+### Append Argument
+
+>实现一个泛型`AppendArgument<Fn, A>`，对于给定的函数类型`Fn`，以及一个任意类型`A`，返回一个新的函数`G`。`G`拥有`Fn` 的所有参数并在末尾追加类型为`A`的参数。
 
 ```typescript
 type AppendArgument<Fn extends (...args: any[]) => any, V> = Fn extends (
@@ -332,11 +394,12 @@ type AppendArgument<Fn extends (...args: any[]) => any, V> = Fn extends (
   ? (...params: [...P, V]) => R
   : Fn;
 
+// 另一种解法：
 type AppendArgument<Fn extends (...args: any[]) => any, V> = (...params: [...Parameters<Fn>, V]) => ReturnType<Fn>
 ```
 
 ### Permutation
-实现联合类型的全排列，将联合类型转换成所有可能的全排列数组的联合类型。
+>实现联合类型的全排列，将联合类型转换成所有可能的全排列数组的联合类型。
 
 ```typescript
 // T extends T 触发分布式条件类型
@@ -346,7 +409,7 @@ type Permutation<T, K = T> = [T] extends [never] ? [] : T extends T ? [T, ...Per
 ```
 
 ### Length Of String
-计算字符串的长度，类似于`String#length`
+>计算字符串的长度，类似于`String#length`。
 
 ```typescript
 // 思路：字符串类型取"length"是number类型，数组类型的"length"是具体的字面量数字类型
@@ -360,7 +423,7 @@ type LengthOfString<
 ```
 
 ### Flatten
-写一个接受数组的类型，并且返回扁平化的数组类型
+>写一个接受数组的类型，并且返回扁平化的数组类型。
 
 ```typescript
 // 定义一个数组类型"变量"S存储扁平化的后的数组类型
@@ -374,6 +437,7 @@ type Flatten<T extends unknown[], S extends unknown[] = []> = T extends [infer F
   // 遍历结束后，返回S
   : S
 
+// 另一种解法
 type Flatten<T> = T extends []
   ? []
   // T如果是一个数组类型并且只有一个成员时，R为空数组类型，因此需要约束 extends [] ? [] : ...
@@ -383,17 +447,17 @@ type Flatten<T> = T extends []
 ```
 
 ### Append to object
-实现一个为接口添加一个新字段的类型。该类型接收三个参数，返回带有新字段的接口类型
+>实现一个为接口添加一个新字段的类型。该类型接收三个参数，返回带有新字段的接口类型。
 
 ```typescript
 type AppendToObject<T, U extends keyof any, V> = {
-  // in 遍历联合类型
+  // 取出T的所有键名 联合U
   [K in keyof T | U]: K extends keyof T ? T[K]: V
 }
 ```
 
 ### Absolute
-实现一个接收`string,number或bigInt`类型参数的`Absolute`类型,返回一个正数字符串
+>实现一个接收`string,number或bigInt`类型参数的`Absolute`类型,返回一个正数字符串。
 
 ```typescript
 // 先把T转成字符串类型去匹配 -1 -> '-1'，通过字符串类型把负号提取出来
@@ -401,7 +465,7 @@ type Absolute<T extends string | number | bigint> = `${T}` extends `-${infer U}`
 ```
 
 ### String to Union
-实现一个将接收到的`String`参数转换为一个字母`Union`的类型
+>实现一个将接收到的`String`参数转换为一个字母`Union`的类型
 
 ```typescript
 // 遍历这个string类型，将每个子字符组成一个新的联合类型
@@ -411,7 +475,7 @@ type StringToUnion<T> = T extends `${infer F}${infer R}`
 ```
 
 ### Merge
-将两个类型合并成一个类型，第二个类型的键会覆盖第一个类型的键
+>将两个类型合并成一个类型，第二个类型的键会覆盖第一个类型的键。
 
 ```typescript
 // 思路：取出两个类型的所有键，判断这个键如果属于第二个类型就赋值第二个类型对应的键值
@@ -424,6 +488,7 @@ type Merge<T extends object, U extends object> = {
     : never;
 };
 
+// 另一种解法
 type Merge<F extends object, S extends object> = {
   // 这里两个同名的key 类型不同会被合并为never，但是这里只用获取所有key
  [k in keyof (F & S)]: k extends keyof S ? S[k] : (F & S)[k]
@@ -432,13 +497,12 @@ type Merge<F extends object, S extends object> = {
 
 ### KebabCase
 
-```typescript
-
-
+```ts
+todo
 ```
 
 ### Diff
-获取两个接口类型中的差值属性
+>获取两个接口类型中的差值属性。
 
 ```typescript
 type Diff<T extends object, U extends object> = {
@@ -450,7 +514,7 @@ type Diff<T extends object, U extends object> = Omit<T & U, keyof (T | U)>;
 ```
 
 ### AnyOf
-类型接收一个数组，如果数组中任一个元素为真，则返回`true`，否则返回`false`。如果数组为空，返回 `false`。
+>类型接收一个数组，如果数组中任一个元素为真，则返回`true`，否则返回`false`。如果数组为空，返回 `false`。
 
 ```typescript
 type AnyOf<T extends any[]> = T[number] extends
@@ -464,14 +528,14 @@ type AnyOf<T extends any[]> = T[number] extends
 ```
 
 ### IsNever
-判断给定的类型是否是`never`
+>判断给定的类型是否是`never`。
 
 ```typescript
 type IsNever<T> = [T] extends [never] ? true : false;
 ```
 
 ### IsUnion
-判断给定的类型是否是联合类型
+>判断给定的类型是否是联合类型。
 
 ```typescript
 // 当类型参数为联合类型，并且在条件类型左边直接引用该类型参数的时候，TypeScript 会把每一个元素单独传入来做类型运算，最后再合并成联合类型，这种语法叫做分布式条件类型，利用这个特性可以判断联合类型
@@ -482,7 +546,7 @@ type IsUnion<A, B = A> = [A] extends [never] ? false : A extends B ? [B] extends
 ```
 
 ### ReplaceKeys
-实现一个类型`ReplaceKeys`，它可以替换联合类型中的键名。如果某个类型没有这个键，则跳过替换
+>实现一个类型`ReplaceKeys`，它可以替换联合类型中的键名。如果某个类型没有这个键，则跳过替换。
 
 ```typescript
 type ReplaceKeys<T, KS, U> = T extends T
@@ -494,19 +558,18 @@ type ReplaceKeys<T, KS, U> = T extends T
 
 ### Remove Index Signature
 
-```typescript
-// to do
+```ts
+todo
 ```
 
 ### Percentage Parser
 
-```typescript
-
-
+```ts
+todo
 ```
 
 ### Drop Char
-从字符串中剔除指定字符
+>从字符串中剔除指定字符。
 
 ```typescript
 // 模式匹配，把匹配到的指定字符递归剔除
@@ -517,7 +580,7 @@ type DropChar<
 ```
 
 ### MinusOne
-给定一个正整数作为类型的参数，要求返回的类型是该数字减 1
+>给定一个正整数作为类型的参数，要求返回的类型是该数字减 1。
 
 ```typescript
 // 一种思路，不支持大数值
@@ -533,7 +596,7 @@ type MinusOne<
 ```
 
 ### PickByType
-从类型`T`中选择出属性类型能分配给`U`的，构造成一个新的类型
+>从类型`T`中选择出属性类型能分配给`U`的，构造成一个新的类型。
 
 ```typescript
 type PickByType<T, U> = {
@@ -542,7 +605,7 @@ type PickByType<T, U> = {
 ```
 
 ### StartsWith
-实现`StartsWith<T, U>`,接收两个`string`类型参数,然后判断`T`是否以`U`开头,根据结果返回`true`或`false`
+>实现`StartsWith<T, U>`,接收两个`string`类型参数,然后判断`T`是否以`U`开头,根据结果返回`true`或`false`。
 
 ```typescript
 type StartsWith<T extends string, U extends string> = T extends `${U}${string}`
@@ -551,7 +614,7 @@ type StartsWith<T extends string, U extends string> = T extends `${U}${string}`
 ```
 
 ### EndsWith
-实现`EndsWith<T, U>`,接收两个`string`类型参数,然后判断`T`是否以`U`结尾,根据结果返回`true`或`false`
+>实现`EndsWith<T, U>`,接收两个`string`类型参数,然后判断`T`是否以`U`结尾,根据结果返回`true`或`false`。
 
 ```typescript
 type EndsWith<T extends string, U extends string> = T extends `${string}${U}`
@@ -560,8 +623,7 @@ type EndsWith<T extends string, U extends string> = T extends `${string}${U}`
 ```
 
 ### PartialByKeys
-实现一个通用的`PartialByKeys<T, K>`，它接收两个类型参数`T`和`K`。
-`K`指定应设置为可选的`T`的属性集。当没有提供`K`时，它就和普通的`Partial<T>`一样使所有属性都是可选的
+>实现一个通用的`PartialByKeys<T, K>`，它接收两个类型参数`T`和`K`。`K`指定应设置为可选的`T`的属性集。当没有提供`K`时，它就和普通的`Partial<T>`一样使所有属性都是可选的。
 
 ```typescript
 type Copy<T> = {
@@ -574,8 +636,7 @@ type PartialByKeys<T, K extends keyof T = keyof T> = Copy<Omit<T, K> & {
 ```
 
 ### RequiredByKeys
-实现一个通用的`RequiredByKeys<T, K>`，它接收两个类型参数`T`和`K`。
-`K`指定应设为必选的`T`的属性集。当没有提供`K`时，它就和普通的`Required<T>`一样使所有的属性成为必选的。
+>实现一个通用的`RequiredByKeys<T, K>`，它接收两个类型参数`T`和`K`。`K`指定应设为必选的`T`的属性集。当没有提供`K`时，它就和普通的`Required<T>`一样使所有的属性成为必选的。
 
 ```typescript
 type Copy<T> = {
@@ -590,7 +651,7 @@ type RequiredByKeys<T, K extends keyof T = keyof T> = Copy<
 ```
 
 ### Mutable
-实现一个通用的类型`Mutable<T>`，使类型`T`的全部属性可变（非只读）
+>实现一个通用的类型`Mutable<T>`，使类型`T`的全部属性可变（非只读）。
 
 ```typescript
 type Mutable<T> = {
@@ -599,7 +660,7 @@ type Mutable<T> = {
 ```
 
 ### OmitByType
-从类型`T`中剔除属性类型能分配给`U`的，构造成一个新的类型
+>从类型`T`中剔除属性类型能分配给`U`的，构造成一个新的类型。
 
 ```typescript
 type OmitByType<T, U> = {
@@ -608,7 +669,7 @@ type OmitByType<T, U> = {
 ```
 
 ### ObjectEntries
-实现一个类型，类似`Object.entries`
+>实现一个类型，类似`Object.entries`。
 
 ```typescript
 // 思路：将对象转为联合类型 -> T[keyof T] / keyof T
@@ -619,14 +680,14 @@ type ObjectEntries<T> = {
 ```
 
 ### Shift
-实现一个类型，类似`Array.shift`
+>实现一个类型，类似`Array.shift`。
 
 ```typescript
 type Shift<T extends unknown[]> = T extends [infer First, ...infer Rest] ? Rest: T
 ```
 
 ### Tuple To Nested Object
-给定一个仅包含字符串类型的元组类型`T`和一个类型`U`，递归构建一个对象
+>给定一个仅包含字符串类型的元组类型`T`和一个类型`U`，递归构建一个对象。
 
 ```typescript
 type TupleToNestedObject<T, U> = T extends [infer F, ...infer Rest]
@@ -636,9 +697,8 @@ type TupleToNestedObject<T, U> = T extends [infer F, ...infer Rest]
   : U;
 ```
 
-
 ### Reverse
-实现类型版本的数组反转`Array.reverse`
+>实现类型版本的数组反转`Array.reverse`。
 
 ```typescript
 // 当处理数量（个数、长度、层数）不固定的类型的时候，可以只处理一个类型，然后递归的调用自身处理下一个类型，直到结束条件也就是所有的类型都处理完了，就完成了不确定数量的类型编程，达到循环的效果
@@ -647,8 +707,8 @@ type Reverse<T extends unknown[]> = T extends [infer F, ...infer Rest]
   : T;
 ```
 
-### FlipArguments
-类型`FlipArguments`需要函数类型`T`，并返回一个新的函数类型，该函数类型具有与`T`相同的返回类型，但参数是反向的
+### Flip Arguments
+>类型`FlipArguments`需要函数类型`T`，并返回一个新的函数类型，该函数类型具有与`T`相同的返回类型，但参数是反向的。
 
 ```typescript
 type Reverse<T extends unknown[]> = T extends [infer F, ...infer Rest]
@@ -665,24 +725,24 @@ type FlipArguments<T extends (...args: any[]) => any> = T extends (
 ### FlattenDepth
 递归地将数组展开，直到达到指定的深度
 
-```typescript
-
-
+```ts
+todo
 ```
 
 ### BEM style string
-```typescript
 
+```ts
+todo
 ```
 
 ### InorderTraversal
 
-```typescript
-
+```ts
+todo
 ```
 
 ### Flip
-实现一个类型，将对象的`key`和`value`交换
+>实现一个类型，将对象的`key`和`value`交换。
 
 ```typescript
 // 遍历对象对 key 进行追加变形
@@ -691,19 +751,21 @@ type Flip<T extends Record<string, string | number | boolean>> = {
 };
 ```
 
-### 斐波那契序列
+### Fibonacci Sequence
 
-```typescript
-
+```ts
+todo
 ```
 
 ### AllCombinations
 
-```typescript
-
+```ts
+todo
 ```
 
 ### Greater Than
+
+>比较两个数字的大小。
 
 ```typescript
 type GreaterArr<
@@ -724,7 +786,7 @@ type GreaterThan<A extends number, B extends number> = GreaterArr<B> extends [
 ```
 
 ### Zip
-在这个挑战中，你需要实现一个类型`Zip`，其中`T`和`U`必须是元组
+>在这个挑战中，你需要实现一个类型`Zip`，其中`T`和`U`必须是元组。
 
 ```typescript
 type Zip<T extends unknown[], U extends unknown[]> = T extends [
@@ -746,7 +808,7 @@ type Zip<T extends unknown[], U extends unknown[]> = [T, U] extends [
 ```
 
 ### IsTuple
-判断类型是否是元组类型
+>判断类型是否是元组类型。
 
 ```typescript
 // 元组类型的 length 是数字字面量，而数组的 length 是 number。
@@ -766,12 +828,13 @@ type IsTuple<T> = [T] extends [never]
 
 ### Chunk
 
-```typescript
-
-
+```ts
+todo
 ```
 
 ### Fill
+
+>实现类似`JS`中的数组的`Fill`方法。
 
 ```typescript
 // 思路1：新建数组，遍历原数组，挨个添加进新数组
@@ -844,14 +907,13 @@ type Without<T, U> = T extends [infer R, ...infer F]
 
 ### Trunc
 
-```typescript
-
-
+```ts
+todo
 ```
 
 
 ### IndexOf
-实现`Array.IndexOf`的类型版本，`indexOf<T, U>`接受数组`T`，任意`U`，并返回数组`T`中第一个`U`的索引
+>实现`Array.IndexOf`的类型版本，`indexOf<T, U>`接受数组`T`，任意`U`，并返回数组`T`中第一个`U`的索引。
 
 ```typescript
 type IsEqual<A, B> = (<X>() => X extends A ? 1 : 2) extends <X>() => X extends B
@@ -872,7 +934,7 @@ type IndexOf<T, U, R extends unknown[] = []> = T extends [
 ```
 
 ### Join
-实现`Array.join`的类型版本，`Join`接受一个数组类型`T`，和一个字符串或数字类型`U`，返回由`U`拼接而成的数组`T`
+>实现`Array.join`的类型版本，`Join`接受一个数组类型`T`，和一个字符串或数字类型`U`，返回由`U`拼接而成的数组`T`。
 
 ```typescript
 // 定义一个类型"变量"R存储拼接后的字符
@@ -896,14 +958,14 @@ type Join<T extends any[], U extends string | number> = T extends [
 ```
 
 ### LastIndexOf
-实现类型版本的`Array.lastIndexOf`, `LastIndexOf<T, U>`接受数组`T`, `any`类型`U`, 如果`U`存在于`T`中, 返回`U`在数组`T`中最后一个位置的索引, 不存在则返回`-1`
+>实现类型版本的`Array.lastIndexOf`, `LastIndexOf<T, U>`接受数组`T`, `any`类型`U`, 如果`U`存在于`T`中, 返回`U`在数组`T`中最后一个位置的索引, 不存在则返回`-1`。
 
-```typescript
-
+```ts
+todo
 ```
 
 ### Unique
-`Unique`接收数组类型`T`, 返回去重后的数组类型
+>`Unique`接收数组类型`T`, 返回去重后的数组类型。
 
 ```typescript
 // 判断两个类型是否相等
@@ -930,12 +992,12 @@ type Unique<T, U extends unknown[] = []> = T extends [infer F, ...infer R]
 
 ### MapTypes
 
-```typescript
-
+```ts
+todo
 ```
 
 ### Construct Tuple
-构造一个给定长度的元组。
+>构造一个给定长度的元组。
 
 ```typescript
 // 既然要构造一个数组，就需要定义一个类型“变量”作为这个数组，L为这个数组的长度
@@ -1005,7 +1067,10 @@ type Combs<T extends string[]> = T extends [
 
 
 ### Subsequence
+
+```ts
 todo
+```
 
 
 
@@ -1023,6 +1088,12 @@ type CheckRepeatedChars<T extends string> =
     : false;
 ```
 
+
+### FirstUniqueCharIndex
+
+```ts
+todo
+```
 
 ### GetMiddleElement
 >通过实现一个`GetMiddleElement`方法，获取数组的中间元素，用数组表示。如果数组的长度为奇数，则返回中间一个元素 如果数组的长度为偶数，则返回中间两个元素
@@ -1095,10 +1166,13 @@ type Integer<T extends string | number> = number extends T
 ```
 
 ### ToPrimitive 
+
+```ts
 todo
+```
 
 ### DeepMutable
-深度可修改，与深度只读相反
+>深度可修改，与深度只读相反。
 
 ```ts
 // keyof (...arg: any) => any为never，这里过滤掉函数类型
@@ -1110,7 +1184,7 @@ type DeepMutable<T extends Record<keyof any, any>> = keyof T extends never
 ```
 
 ### All
-如果列表中的所有元素都等于传入的第二个参数，则返回`true`，如果有任何不匹配则返回`false`
+>如果列表中的所有元素都等于传入的第二个参数，则返回`true`，如果有任何不匹配则返回`false`。
 
 ```typescript
 type IsEqual<A, B> = (<X>() => X extends A ? 1 : 2) extends <X>() => X extends B
@@ -1135,7 +1209,9 @@ type All<
     IsEqual<R["length"], TLen>;
 ```
 
-### Filter 
+### Filter
+
+>类似`JS`中的数组的`Filter`方法。
 
 ```typescript
 // 思路：定义一个类型"变量"U存储符合条件的成员
@@ -1156,8 +1232,13 @@ type Filter<T extends unknown[], P> = T extends [infer F, ...infer R]
   : [];
 ```
 
+### Combination key type
 
-### ReplaceFirst
+```ts
+todo
+```
+
+### Replace First
 
 >实现类型`ReplaceFirst<T, S, R>`，它将用`R`替换元组`T`中第一次出现的`S`。如果`T`中不存在这样的`S`，则结果应为`T`。
 
@@ -1186,7 +1267,7 @@ type ReplaceFirst<T extends readonly unknown[], S, R> = T extends readonly [
   : [];
 ```
 ### Transpose
->
+>实现一个类型，`Transpose <[[1, 2], [3, 4]]>; // expected to be [[1, 3], [2, 4]]`，`Transpose <[[1, 2, 3], [4, 5, 6]]>; // expected to be [[1, 4], [2, 5], [3, 6]]`
 
 ```ts
 type Array<N extends number, T extends unknown[] = []> = T["length"] extends N
@@ -1228,7 +1309,10 @@ type Transpose<M extends number[][],R = M['length'] extends 0?[]:M[0]> = {
 ```
 
 ### JSON Schema to TypeScript
+
+```ts
 todo
+```
 
 ### Square
 >给定一个数组，返回它的平方。
@@ -1260,6 +1344,8 @@ type Square<
 
 ### Triangular number
 
+>给定一个数字N，求0 + 1 + ... + N。
+
 ```ts
 // 减法的思路
 type NewArr<N extends number, T extends unknown[] = []> = T["length"] extends N
@@ -1287,6 +1373,8 @@ type Triangular<
 ```
 
 ### CartesianProduct
+
+>
 
 ```ts
 // Union<2 | 3> -> [2] | [3]
@@ -1326,8 +1414,6 @@ type MergeAll<T, O = {}> = T extends [infer F, ...infer R]
     MergeAll<R, MergeObj<F, O>>
   : O;
 ```
-
-
 
 ### CheckRepeatedTuple
 >判断一个元组类型中是否有相同的成员。
