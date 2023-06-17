@@ -16,7 +16,7 @@ const cacheFn = useCallback(fn, dependencies)
 
 - `fn`：需要缓存的函数，可以接收任意个数的参数以及返回任意类型的值。在初始化渲染期间，`React`会返回这个函数（不会调用它），下一次渲染时，当依赖性没有发生变化，`React`会再一次返回这个相同的函数。
 
-- `dependencies`：`fn`中使用的所有响应式值的列表，响应式值包含`props`、`state`以及所有变量，函数声明包含在组件内部的。依赖性列表必须具体恒定数量的项，`React`将使用`Object.is`比较每个依赖性与其先前的值
+- `dependencies`：`fn`中使用的所有响应值的列表，响应值包含`props`、`state`以及所有变量，函数声明包含在组件内部的。依赖性列表必须具体恒定数量的项，`React`将使用`Object.is`比较每个依赖性与其先前的值
 
 ### Returns
 
@@ -116,9 +116,9 @@ function ChatRoom({ roomId }) {
     };
   }
 
-  // 这里有个问题，每个响应值都必须声明为Effect的依赖项
-  // 然而如果声明了createOptions作为依赖项，这会造成不断重新连接这个chat room
   useEffect(() => {
+    // 这里有个问题，每个在函数中使用的响应值都必须声明为Effect的依赖项
+    // 然而如果声明了createOptions作为依赖项，这会造成不断重新连接这个chat room
     const options = createOptions();
     const connection = createConnection();
     connection.connect();
@@ -506,9 +506,308 @@ function MyApp() {
 </ThemeContext.Provider>
 ```
 
-## 4一句话总结用法
->`useContext`是一种跨组件通信的方式，需要配合`createContext`使用，通过`createContext`创建一个上下文，然后用它返回的上下文对象的`provider`包裹需要接收上下文的所有组件，在这些组件中使用`useContext`就可以获取到传递上下文的值。
+## 4. 一句话总结用法
+>`useContext`是一种提供跨组件通信方式的Hook，需要配合`createContext`使用，通过`createContext`创建一个上下文，然后用它返回的上下文对象的`provider`包裹需要接收上下文的所有组件，在这些组件中使用`useContext`就可以获取到传递上下文的值。当上下文的值发生改变时，所有使用的组件都会触发重新渲染。
 
+
+## [useEffect](https://react.dev/reference/react/useEffect)
+
+>在组件中执行副作用。
+
+```ts
+useEffect(setup, dependencies)
+```
+
+## 1. Reference
+
+### Parameters
+
+- `setup function`：一个带有副作用逻辑的函数，这个函数可以返回一个清理函数。当组件被添加进`DOM`时，`React`会调用setup function，在之后的每次渲染并改变依赖项后也会调用；`React`首先会调用带有旧状态的清理函数（如果有提供），然后调用带有新状态的setup function；当组件从`DOM`移除时，也会调用清理函数。
+
+- `optional dependencies`：（一个依赖项数组）所有在setup function中引用的响应值列表，包含`props`、`state`和所有变量、函数声明在组件内部的。`React`会使用`Object.is`比较每一项依赖，如果没有传依赖项数组，setup function将会在每一次重新渲染后重新执行。
+
+### Returns
+>`useEffect`没有返回值（undefined）。
+
+### Caveats
+
+- 只能在组件的顶层作用域中调用，不能在循环，条件语句中。
+- 如果不需要去执行一些副作用操作时，不要使用`Effect`。
+- 严格模式下的行为，略。
+- 如果依赖项是定义在组件内部的对象或者函数时，可能会造成`Effect`频繁的执行，为了修复这个问题，可以移除非必要的对象或函数依赖。
+- 如果`Effect`不是由交互引起的，`React`会先绘制屏幕更新在执行`Effect`之前，如果`Effect`是在做一些视觉上的事情，并且有明显延迟，用`useLayoutEffect`代替。
+- 即使`Effect`是由交互引起的，浏览器也可能在`Effect`中的状态更新前重新绘制屏幕，如果必须在浏览器的重新绘制屏幕前，使用`useLayoutEffect`代替。
+- `Effect`只运行在客户端，在服务端渲染期间不会执行。
+
+
+## 2. Usage
+
+### Connecting to an external system
+
+>`React`在必要时调用副作用函数和清理函数，这可能发生多次
+
+- 当组件挂载时执行一次副作用函数。
+- 依赖项发生变化后每次重新渲染期间，先执行一次清理函数，再执行一次副作用函数。
+- 组件从页面中移除时，执行一次清理函数
+
+```ts
+import { useEffect } from 'react';
+import { createConnection } from './chat.js';
+
+function ChatRoom({ roomId }) {
+  const [serverUrl, setServerUrl] = useState('https://localhost:1234');
+
+  // 接收两个参数，一个副作用函数，一个依赖项数组
+  useEffect(() => {
+  	const connection = createConnection(serverUrl, roomId);
+    connection.connect();
+  	return () => {
+      connection.disconnect();
+  	};
+  }, [serverUrl, roomId]);
+  // ...
+}
+```
+
+### Wrapping Effects in custom Hooks
+
+>为组件所依赖的常见行为提取一些自定义`Hooks`。
+
+```ts
+function useChatRoom({ serverUrl, roomId }) {
+  useEffect(() => {
+    const options = {
+      serverUrl: serverUrl,
+      roomId: roomId
+    };
+    const connection = createConnection(options);
+    connection.connect();
+    return () => connection.disconnect();
+  }, [roomId, serverUrl]);
+}
+
+function ChatRoom({ roomId }) {
+  const [serverUrl, setServerUrl] = useState('https://localhost:1234');
+  // 把聊天室的连接封装成一个自定义Hook
+  useChatRoom({
+    roomId: roomId,
+    serverUrl: serverUrl
+  });
+  // ...
+}
+```
+
+### Controlling a non-React widget
+>有些时候，如果希望外部系统和组件内部的状态同步，可以不需要清理函数。
+
+### Fetching data with Effects
+>可以使用Effect为组件去请求网络数据。
+
+```ts
+import { useState, useEffect } from 'react';
+import { fetchBio } from './api.js';
+
+export default function Page() {
+  const [person, setPerson] = useState('Alice');
+  const [bio, setBio] = useState(null);
+
+  useEffect(() => {
+    let ignore = false;
+    setBio(null);
+    // 请求网络数据 
+    fetchBio(person).then(result => {
+      if (!ignore) {
+        setBio(result);
+      }
+    });
+    return () => {
+      ignore = true;
+    };
+  }, [person]);
+
+  // ...
+}
+```
+
+### Specifying reactive dependencies
+
+>任何使用在`Effect`中的响应值都必须作为一个依赖声明。当依赖性是一个空数组时，组件的`props`和`state`改变了也不会重新执行，如果没有传递依赖性数组，每次组件重新渲染期间，`Effect`都会重新执行。
+
+```ts
+function ChatRoom({ roomId }) { // This is a reactive value
+  const [serverUrl, setServerUrl] = useState('https://localhost:1234'); // This is a reactive value too
+
+  useEffect(() => {
+    const connection = createConnection(serverUrl, roomId); // This Effect reads these reactive values
+    connection.connect();
+    return () => connection.disconnect();
+  }, [serverUrl, roomId]); // So you must specify them as dependencies of your Effect
+  // ...
+}
+
+// 在配置了正确的linter时，如果尝试移除serverUrl和roomId，React会抛出一个错误
+function ChatRoom({ roomId }) {
+  const [serverUrl, setServerUrl] = useState('https://localhost:1234');
+  
+  useEffect(() => {
+    const connection = createConnection(serverUrl, roomId);
+    connection.connect();
+    return () => connection.disconnect();
+  }, []); // React Hook useEffect has missing dependencies: 'roomId' and 'serverUrl'
+  // ...
+}
+
+// 如果想要移除一个依赖，需要证明这个依赖不是必须的
+// 这个serverUrl在组件重新渲染后也不会改变
+const serverUrl = 'https://localhost:1234'; // Not a reactive value anymore
+
+function ChatRoom({ roomId }) {
+  useEffect(() => {
+    const connection = createConnection(serverUrl, roomId);
+    connection.connect();
+    return () => connection.disconnect();
+  }, [roomId]); // All dependencies declared
+  // ...
+}
+
+
+// 如果Effect没有使用任何响应值，这个依赖项数组应该是空的
+const serverUrl = 'https://localhost:1234'; // Not a reactive value anymore
+const roomId = 'music'; // Not a reactive value anymore
+
+function ChatRoom() {
+  useEffect(() => {
+    const connection = createConnection(serverUrl, roomId);
+    connection.connect();
+    return () => connection.disconnect();
+  }, []); // All dependencies declared
+  // ...
+}
+```
+
+### Updating state based on previous state from an Effect
+
+>当需要在`Effect`中基于上一次状态来更新状态。
+
+```ts
+function Counter() {
+  const [count, setCount] = useState(0);
+  // 这会导致，每一次count改变，Effect都重新执行
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setCount(count + 1); // You want to increment the counter every second...
+    }, 1000)
+    return () => clearInterval(intervalId);
+  }, [count]); //  ... but specifying `count` as a dependency always resets the interval.
+  // ...
+}
+
+
+// fix
+export default function Counter() {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setCount(c => c + 1); // Pass a state updater
+    }, 1000);
+    return () => clearInterval(intervalId);
+  }, []); // Now count is not a dependency
+
+  return <h1>{count}</h1>;
+}
+```
+
+### Removing unnecessary object dependencies 
+
+>如果`Effect`依赖的是一个对象或者函数（在渲染期间创建的），这可能会造成Effect频繁执行。
+
+```ts
+const serverUrl = 'https://localhost:1234';
+
+function ChatRoom({ roomId }) {
+  const [message, setMessage] = useState('');
+
+  const options = { // This object is created from scratch on every re-render
+    serverUrl: serverUrl,
+    roomId: roomId
+  };
+
+  useEffect(() => {
+    const connection = createConnection(options); // It's used inside the Effect
+    connection.connect();
+    return () => connection.disconnect();
+  }, [options]); // 🚩 As a result, these dependencies are always different on a re-render
+  // ...
+}
+
+// fix
+// 避免使用一个在渲染期间创建的对象作为依赖，取而代之的是把这个对象的创建写入Effect
+function ChatRoom({ roomId }) {
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    const options = { 
+      serverUrl: serverUrl,
+      roomId: roomId
+    };
+    const connection = createConnection(options);
+    connection.connect();
+    return () => connection.disconnect();
+  }, [roomId]);
+  // ...
+}
+```
+
+### Removing unnecessary function dependencies
+
+- 同上，略。
+
+### Reading the latest props and state from an Effect
+
+- 引出`useEffectEvent`，略
+
+### Displaying different content on the server and the client
+
+>如果应用使用服务端渲染，你的组件将渲染在两个不同的环境，在服务端，它将会渲染初始的`HTML`，在客户端，`React`将会再一次执行渲染代码，以便将事件处理附加到`HTML`。
+
+```ts
+function MyComponent() {
+  const [didMount, setDidMount] = useState(false);
+
+  useEffect(() => {
+    setDidMount(true);
+  }, []);
+
+  if (didMount) {
+    // ... return client-only JSX ...
+  }  else {
+    // ... return initial JSX ...
+  }
+}
+```
+
+
+## 3. Troubleshooting
+
+### My Effect runs twice when the component mounts
+>当严格模式开启时，在开发环境中，`React`会额外运行一次setup和cleanup。
+
+### My Effect runs after every re-render
+>检查是否没有传递依赖数组，如果有传递依赖数组，可能是这些依赖在每次渲染期间都是不同的。
+
+### My Effect keeps re-running in an infinite cycle 
+>`Effect`更新了状态，这个造成`Effect`依赖改变的状态又触发了重新渲染。
+
+### My cleanup logic runs even though my component didn’t unmount 
+>清理函数不仅仅是在组件从`DOM`中移除时触发，在每一次依赖改变后重新渲染前也会触发。
+
+### My Effect does something visual, and I see a flicker before it runs 
+
+>如果`Effect`需要在浏览器渲染屏幕前执行，用`useLayoutEffect`代替。
+
+## 4. 一句话总结用法
+>`useEffect`用于在组件中执行副作用，它接收两个参数，一个是副作用函数，这个函数可以返回另一个清理函数（清除副作用产生的影响），`React`会在这个副作用函数重新执行前先执行这个清理函数；第二个参数是依赖项数组，当依赖性发生变化时，`React`会重新执行副作用函数，当依赖性数组为空时，副作用函数在整个组件生命周期中只执行一次，当没有传递依赖性数组时，每次组件重新渲染期间，`React`都会重新执行这个副作用函数。
 
 ## [useState](https://react.dev/reference/react/useState)
 
@@ -838,7 +1137,6 @@ function handleClick() {
 
 >`useState`接受两个参数，第一个是状态的初始值，如果初始值是函数，会在初始化渲染期间调用这个函数，并将其返回值存储起来；第二个参数是更新状态的函数，这个更新函数调用时，传递的参数如果是函数会接收到上一次状态的值，然后将其调用结果作为新的状态更新。
 
------------------------------
 
 ## [UseMemo](https://react.dev/reference/react/useMemo)
 
@@ -854,7 +1152,7 @@ const cachedValue = useMemo(calculateValue, dependencies)
 
 - `calculateValue`：需要缓存值的计算函数，它必须是纯函数，没有任何参数，返回一个任意类型的值。`React`将会调用这个函数在初始化渲染期间，在下次渲染时`React`将会返回相同的结果（如果`dependencies`在上一次渲染后没有任何变化），否则`React`将再次调用这个`calculateValue`拿到最新的返回结果进行缓存
 
-- `dependencies`：在`calculateValue`中使用的所有响应式值的列表，响应式值包含`props`、`state`以及所有变量，函数声明包含在组件内部的。依赖性列表必须具体恒定数量的项，`React`将使用`Object.is`比较每个依赖性与其先前的值
+- `dependencies`：在`calculateValue`中使用的所有响应值的列表，响应值包含`props`、`state`以及所有变量，函数声明包含在组件内部的。依赖性列表必须具体恒定数量的项，`React`将使用`Object.is`比较每个依赖性与其先前的值
 
 ### Returns
 >在初始化渲染中，`useMemo`的返回值是`calculateValue`调用后的返回值;在下一个渲染期间，它要么是上次渲染缓存的值，要么是再次调用`calculateValue`的返回值。
@@ -1062,6 +1360,158 @@ const Report = memo(function Report({ item }) {
 
 >`useMemo`接受两个参数，第一个参数是函数，会调用这个函数然后把其返回值缓存起来，第二个参数是依赖项数组(确保这些依赖在这个函数中使用)，`React`通过`Object.is`去比较依赖项的变化，如果没有发生变化，缓存的结果和上次渲染期间是相同的；否则会重新调用这个函数，获取最新的返回值缓存起来。
 
-## useRef
+## [useRef](https://react.dev/reference/react/useRef)
 
-// todo
+>引用一个不需要渲染的值。
+
+```ts
+const ref = useRef(initialValue)
+```
+
+## 1. Reference
+
+### Parameters
+
+- `initialValue`：ref对象的`current`属性的初始值，可以是任意类型，会在首次渲染之后被忽略。
+
+### Returns
+>返回一个对象只有一个`current`属性。这个`current`属性初始值是传递的`initialValue`，之后可以把它设置成其他值。如果把ref对象作为`JSX`的`ref`属性传递给`React`，`React`会为它设置`current`属性。
+
+### Caveats
+
+- 可以修改`ref.current`属性，它是可变的，如果把它用于渲染，就不该修改它。
+- 改变`ref.current`属性不会触发`React`重新渲染。
+- 不要写入和读取`ref.current`在渲染期间（除了初始化渲染）。
+- 严格模式下的开发环境行为，略
+
+## 2. Usage 
+
+### Referencing a value with a ref 
+
+>`useRef`返回一个具有单个`current`属性 的`ref`对象，并初始化为你提供的`initial value`，在之后的渲染中都是同一个对象（持久化），改变ref不会触发重新渲染
+
+- 可以在重新渲染期间存储信息（不像普通对象，每次渲染都会重置），引用的值被持久化。
+- 改变它不会触发重新渲染（不像`state`，会触发重新渲染）
+
+```ts
+import { useRef } from 'react';
+
+export default function Counter() {
+  // 记录按钮点击的次数，由于不用于组件渲染，可以不使用state
+  let ref = useRef(0);
+
+  function handleClick() {
+    ref.current = ref.current + 1;
+    alert('You clicked ' + ref.current + ' times!');
+  }
+
+  return (
+    <button onClick={handleClick}>
+      Click me!
+    </button>
+  );
+}
+```
+
+### Manipulating the DOM with a ref
+
+>通过`ref`操作`DOM`是非常常见的，`React`内置了对它的支持。
+
+```ts
+import { useRef } from 'react';
+
+export default function Form() {
+  const inputRef = useRef(null);
+
+  function handleClick() {
+    inputRef.current.focus();
+  }
+
+  return (
+    <>
+      // 将这个ref对象传递给操作节点的ref属性
+      <input ref={inputRef} />
+      <button onClick={handleClick}>
+        Focus the input
+      </button>
+    </>
+  );
+}
+```
+
+Examples of manipulating the DOM with useRef
+
+```ts
+import { forwardRef, useRef } from 'react';
+
+// 通过forwardRef向父组件暴露ref
+const MyInput = forwardRef((props, ref) => {
+  return <input {...props} ref={ref} />;
+});
+
+export default function Form() {
+  const inputRef = useRef(null);
+
+  function handleClick() {
+    inputRef.current.focus();
+  }
+
+  return (
+    <>
+      <MyInput ref={inputRef} />
+      <button onClick={handleClick}>
+        Focus the input
+      </button>
+    </>
+  );
+}
+```
+
+### Avoiding recreating the ref contents
+>`React`会保存首次的ref初始值，并在后续渲染中忽视它。
+
+```ts
+function Video() {
+  // 这里new VideoPlayer的结果只会在首次渲染时使用，但是每次渲染都会调用这个方法
+  const playerRef = useRef(new VideoPlayer());
+  // ...
+}
+
+// fix
+function Video() {
+  const playerRef = useRef(null)
+  // 通常在渲染期间写入和读取current是不被允许的，但这种情况下可以
+  // 条件只在初始化渲染时执行，行为是可预测的
+  if (playerRef.current === null) {
+    playerRef.current = new VideoPlayer()
+  }
+}
+```
+
+## 3. Troubleshooting 
+
+### I can’t get a ref to a custom component 
+
+>无法在函数式组件上直接使用`ref`。
+
+```ts
+import { forwardRef } from 'react';
+
+// 可以通过forwardRef，把ref转发到组件内部的DOM节点上
+const MyInput = forwardRef(({ value, onChange }, ref) => {
+  return (
+    <input
+      value={value}
+      onChange={onChange}
+      ref={ref}
+    />
+  );
+});
+
+const inputRef = useRef(null);
+
+return <MyInput ref={inputRef} />;
+```
+
+## 4. 一句话总结用法
+>`useRef`可以持久化的保存一个值或者是一个`DOM节点`，`React元素`，它接收一个参数，这个参数在初始化渲染期间会传递给它返回`ref对象`的`current`属性，`current`属性是可修改的，修改它不会触发`React`重新渲染。
