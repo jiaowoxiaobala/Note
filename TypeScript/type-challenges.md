@@ -1452,3 +1452,5 @@ type CheckRepeatedTuple<T extends unknown[]> = T extends [infer L, ...infer R]
     : CheckRepeatedTuple<R>
   : false;
 ```
+
+未完待续...

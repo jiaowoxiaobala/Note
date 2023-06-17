@@ -512,7 +512,7 @@ function MyApp() {
 
 ## [useEffect](https://react.dev/reference/react/useEffect)
 
->在组件中执行副作用。
+>在组件中执行副作用。（浏览器绘制屏幕之后）
 
 ```ts
 useEffect(setup, dependencies)
@@ -522,7 +522,7 @@ useEffect(setup, dependencies)
 
 ### Parameters
 
-- `setup function`：一个带有副作用逻辑的函数，这个函数可以返回一个清理函数。当组件被添加进`DOM`时，`React`会调用setup function，在之后的每次渲染并改变依赖项后也会调用；`React`首先会调用带有旧状态的清理函数（如果有提供），然后调用带有新状态的setup function；当组件从`DOM`移除时，也会调用清理函数。
+- `setup function`：一个带有副作用逻辑的函数，这个函数可以返回一个清理函数（清除副作用）。当组件被添加进`DOM`时，`React`会调用setup function，在之后的每次渲染并改变依赖项后也会调用；`React`首先会调用带有旧状态的清理函数（如果有提供），然后调用带有新状态的setup function；当组件从`DOM`移除时，也会调用清理函数。
 
 - `optional dependencies`：（一个依赖项数组）所有在setup function中引用的响应值列表，包含`props`、`state`和所有变量、函数声明在组件内部的。`React`会使用`Object.is`比较每一项依赖，如果没有传依赖项数组，setup function将会在每一次重新渲染后重新执行。
 
@@ -533,10 +533,10 @@ useEffect(setup, dependencies)
 
 - 只能在组件的顶层作用域中调用，不能在循环，条件语句中。
 - 如果不需要去执行一些副作用操作时，不要使用`Effect`。
-- 严格模式下的行为，略。
+- 当严格模式中，`React`会额外调用一次setup和cleanup（副作用函数和清除副作用函数）在第一次调用setup前
 - 如果依赖项是定义在组件内部的对象或者函数时，可能会造成`Effect`频繁的执行，为了修复这个问题，可以移除非必要的对象或函数依赖。
 - 如果`Effect`不是由交互引起的，`React`会先绘制屏幕更新在执行`Effect`之前，如果`Effect`是在做一些视觉上的事情，并且有明显延迟，用`useLayoutEffect`代替。
-- 即使`Effect`是由交互引起的，浏览器也可能在`Effect`中的状态更新前重新绘制屏幕，如果必须在浏览器的重新绘制屏幕前，使用`useLayoutEffect`代替。
+- 即使`Effect`是由交互引起的，浏览器也可能在`Effect`中的状态更新前重新绘制屏幕，如果必须阻塞浏览器重新绘制屏幕，使用`useLayoutEffect`代替。
 - `Effect`只运行在客户端，在服务端渲染期间不会执行。
 
 
@@ -612,6 +612,7 @@ export default function Page() {
   const [bio, setBio] = useState(null);
 
   useEffect(() => {
+    // 这个布尔值的作用是避免person更新后，请求竞态（例如第一个请求比第二个请求慢）
     let ignore = false;
     setBio(null);
     // 请求网络数据 
@@ -1137,8 +1138,142 @@ function handleClick() {
 
 >`useState`接受两个参数，第一个是状态的初始值，如果初始值是函数，会在初始化渲染期间调用这个函数，并将其返回值存储起来；第二个参数是更新状态的函数，这个更新函数调用时，传递的参数如果是函数会接收到上一次状态的值，然后将其调用结果作为新的状态更新。
 
+## [useInsertionEffect]
 
-## [UseMemo](https://react.dev/reference/react/useMemo)
+>它是`useEffect`的一个版本，在DOM改变之前触发副作用。
+
+```ts
+useInsertionEffect(setup, dependencies?)
+```
+
+## 1. Reference
+
+### Parameters 
+
+- 略，参照useEffect。
+
+### Returns
+>`useInsertionEffect`没有返回值
+
+### Caveats
+
+- 仅仅在客户端执行，不会在服务端渲染期间执行。
+- 不能在`useInsertionEffect`内部更新状态。
+- 在运行时，`ref`还没被附加到`组件/DOM`上，`DOM`也还没更新。
+
+## 2. Usage
+
+### Injecting dynamic styles from CSS-in-JS libraries
+>传统下，可以使用纯`CSS`为`React`组件设计样式，有些团队更喜欢直接在`JS`代码中设置样式。这通常需要使用`CSS-in-JS`的库或者工具。
+
+- 通过编译器静态提取CSS文件
+- 行内样式，例如`<div style={{ opacity: 1 }}>`（可以使用`useInsertionEffect`解决
+- 运行时注入`style`标签（不被推荐
+
+```ts
+// 调用useInsertionEffect在DOM更新前插入样式
+// Inside your CSS-in-JS library
+let isInserted = new Set();
+function useCSS(rule) {
+  useInsertionEffect(() => {
+    // As explained earlier, we don't recommend runtime injection of <style> tags.
+    // But if you have to do it, then it's important to do in useInsertionEffect.
+    if (!isInserted.has(rule)) {
+      isInserted.add(rule);
+      document.head.appendChild(getStyleForRule(rule));
+    }
+  });
+  return rule;
+}
+
+function Button() {
+  const className = useCSS('...');
+  return <div className={className} />;
+}
+
+// --------------------
+// 如果需要在服务端渲染期间收集CSS rules
+let collectedRulesSet = new Set();
+
+function useCSS(rule) {
+  if (typeof window === 'undefined') {
+    collectedRulesSet.add(rule);
+  }
+  useInsertionEffect(() => {
+    // ...
+  });
+  return rule;
+}
+```
+
+## 3. 一句话总结用法
+>和`useEffect`近乎一致，唯一的区别在于副作用函数执行的时机在`DOM`改变前，通常用于为`DOM`注入样式。
+
+
+
+## [useLayoutEffect](https://react.dev/reference/react/useLayoutEffect)
+
+>它是`useEffect`的一个版本，在浏览器重新绘制屏幕之前触发副作用。
+
+
+```ts
+useLayoutEffect(setup, dependencies?)
+```
+
+## 1. Reference
+
+### Parameters
+
+- 略，参照useEffect。
+
+### Returns
+>`useLayoutEffect`没有返回值。
+
+### Caveats
+
+- 在组件的顶层作用域中调用，不能在循环或者条件语句中调用。
+- 当严格模式中，`React`会额外调用一次setup和cleanup（副作用函数和清除副作用函数）在第一次调用setup前。
+- 如果你的依赖项是定义在组件内部的对象或者函数，可能会造成副作用函数多次调用，为了修复这个问题，移除不必要的对象和函数依赖。
+- `Effect`只在客户端运行，在服务端渲染期间不会允许。
+- 在`useLayout`内部的所有状态更新都会阻塞浏览器绘制屏幕，可能会导致应用缓慢，尽可能推荐使用`useEffect`。
+
+## 2. Usage
+
+### Measuring layout before the browser repaints the screen
+
+>大多数组件都不需要在渲染时知道它们在屏幕中的定位和尺寸，它们仅仅返回`JSX`，浏览器计算它们的布局绘制屏幕。
+
+```ts
+// 这个例子中需要在浏览器绘制屏幕前，获取到元素的高度
+function Tooltip() {
+  const ref = useRef(null);
+  const [tooltipHeight, setTooltipHeight] = useState(0); // You don't know real height yet
+
+  useLayoutEffect(() => {
+    const { height } = ref.current.getBoundingClientRect();
+    setTooltipHeight(height); // Re-render now that you know the real height
+  }, []);
+
+  // ...use tooltipHeight in the rendering logic below...
+}
+```
+
+## 3. Troubleshooting 
+
+### I’m getting an error: ”useLayoutEffect does nothing on the server”
+
+>`useLayoutEffect`的目的是为了让你的组件使用布局信息进行渲染。但在使用服务端渲染时，渲染初始内容是在`JS`代码执行之前，这会导致读不到布局信息。
+
+- 渲染初始内容
+- 在浏览器绘制屏幕前测量布局
+- 使用读到的布局信息渲染最后内容
+
+
+## 4. 一句话总结用法
+>和`useEffect`近乎一致，唯一的区别在于`useLayoutEffect`执行副作用函数时会阻塞浏览器渲染，在浏览器绘制屏幕之前执行。
+
+
+## [useMemo](https://react.dev/reference/react/useMemo)
 
 >在组件重新渲染之间缓存计算结果。（由于每一次状态更新都会导致组件重新渲染
 
@@ -1359,6 +1494,7 @@ const Report = memo(function Report({ item }) {
 ## 4. 一句话总结用法
 
 >`useMemo`接受两个参数，第一个参数是函数，会调用这个函数然后把其返回值缓存起来，第二个参数是依赖项数组(确保这些依赖在这个函数中使用)，`React`通过`Object.is`去比较依赖项的变化，如果没有发生变化，缓存的结果和上次渲染期间是相同的；否则会重新调用这个函数，获取最新的返回值缓存起来。
+
 
 ## [useRef](https://react.dev/reference/react/useRef)
 
