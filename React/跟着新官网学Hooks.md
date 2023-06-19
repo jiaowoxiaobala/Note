@@ -14,13 +14,13 @@ const cacheFn = useCallback(fn, dependencies)
 
 ### Parameters
 
-- `fn`：需要缓存的函数，可以接收任意个数的参数以及返回任意类型的值。在初始化渲染期间，`React`会返回这个函数（不会调用它），下一次渲染时，当依赖性没有发生变化，`React`会再一次返回这个相同的函数。
+- `fn`：需要缓存的函数，可以接收任意个数的参数以及返回任意类型的值。在组件首次渲染期间，`React`会返回这个函数（不会调用它），下一次渲染时，当依赖性没有发生变化，`React`会再一次返回这个相同的函数。
 
 - `dependencies`：`fn`中使用的所有响应值的列表，响应值包含`props`、`state`以及所有变量，函数声明包含在组件内部的。依赖性列表必须具体恒定数量的项，`React`将使用`Object.is`比较每个依赖性与其先前的值
 
 ### Returns
 
->在初始化渲染期间，`useCallback`返回传递的函数；在之后的渲染中，它要么返回在上一次渲染中存储的函数，要么返回一个在当前渲染期间传递的函数（新的函数）
+>在组件首次渲染期间，`useCallback`返回传递的函数；在之后的渲染中，它要么返回在上一次渲染中存储的函数，要么返回一个在当前渲染期间传递的函数（新的函数）
 
 ### Caveats
 
@@ -810,6 +810,650 @@ function MyComponent() {
 ## 4. 一句话总结用法
 >`useEffect`用于在组件中执行副作用，它接收两个参数，一个是副作用函数，这个函数可以返回另一个清理函数（清除副作用产生的影响），`React`会在这个副作用函数重新执行前先执行这个清理函数；第二个参数是依赖项数组，当依赖性发生变化时，`React`会重新执行副作用函数，当依赖性数组为空时，副作用函数在整个组件生命周期中只执行一次，当没有传递依赖性数组时，每次组件重新渲染期间，`React`都会重新执行这个副作用函数。
 
+## [useImperativeHandle](https://react.dev/reference/react/useImperativeHandle)
+
+>它可以自定义由`ref`暴露出来的内容。
+
+```ts
+useImperativeHandle(ref, createHandle, dependencies?)
+```
+
+## 1. Reference
+
+### Parameters
+
+- `ref`：从`forwardRef`渲染函数中获得的第二个参数。
+- `createHandle`：一个没有任何参数的函数，它返回一个你想暴露的方法（各种属性）的对象。
+- `dependencies`：略，同`useEffect`的`dependencies`。
+
+### Returns
+
+>`useImperative`没有返回值。
+
+## 2. Usage
+
+### Exposing a custom ref handle to the parent component 
+
+>默认情况下，函数式组件无法暴露`DOM`节点给父组件，需要使用`forwardRef`转发。
+
+```ts
+import { forwardRef } from 'react';
+
+// MyInput的ref会接收input DOM节点
+const MyInput = forwardRef(function MyInput(props, ref) {
+  return <input {...props} ref={ref} />;
+});
+
+
+// 可以通过useImperativeHandle修改MyInput暴露出去的ref
+import { forwardRef, useImperativeHandle } from 'react';
+
+const MyInput = forwardRef(function MyInput(props, ref) {
+  useImperativeHandle(ref, () => {
+    return {
+      // 自定义暴露内容
+    };
+  }, []);
+
+  return <input {...props} />;
+});
+
+// 比如不想暴露出整个input DOM节点，只想要它其中的两个方法，focus和scrolltoView
+import { forwardRef, useRef, useImperativeHandle } from 'react';
+
+const MyInput = forwardRef(function MyInput(props, ref) {
+  const inputRef = useRef(null);
+
+  useImperativeHandle(ref, () => {
+    return {
+      focus() {
+        inputRef.current.focus();
+      },
+      scrollIntoView() {
+        inputRef.current.scrollIntoView();
+      },
+    };
+  }, []);
+
+  return <input {...props} ref={inputRef} />;
+});
+```
+
+### Exposing your own imperative methods
+
+>自定义暴露出来的方法不一定要匹配DOM节点的方法，可以自定义内容。
+
+```ts
+import { forwardRef, useRef, useImperativeHandle } from 'react';
+
+const CommentList = forwardRef(function CommentList(props, ref) {
+  const divRef = useRef(null);
+
+  useImperativeHandle(ref, () => {
+    return {
+      // 滚动到底部
+      scrollToBottom() {
+        const node = divRef.current;
+        node.scrollTop = node.scrollHeight;
+      }
+    };
+  }, []);
+
+  let comments = [];
+  for (let i = 0; i < 50; i++) {
+    comments.push(<p key={i}>Comment #{i}</p>);
+  }
+
+  return (
+    <div className="CommentList" ref={divRef}>
+      {comments}
+    </div>
+  );
+});
+```
+
+## 3. 一句话总结用法
+
+>`useImperativeHandle`用于通过`ref`暴露自定义的内容，接收三个参数，第一个参数是`forwardRef`中的第二参数，第二个是函数`createHandle`，该函数返回的对象就是暴露出去的内容，第三个参数是一个依赖项数组，控制`createHandle`是否重新执行。
+
+## [useInsertionEffect](https://react.dev/reference/react/useInsertionEffect)
+
+>它是`useEffect`的一个版本，在DOM改变之前触发副作用。
+
+```ts
+useInsertionEffect(setup, dependencies?)
+```
+
+## 1. Reference
+
+### Parameters 
+
+- 略，参照useEffect。
+
+### Returns
+>`useInsertionEffect`没有返回值。
+
+### Caveats
+
+- 仅仅在客户端执行，不会在服务端渲染期间执行。
+- 不能在`useInsertionEffect`内部更新状态。
+- 在运行时，`ref`还没被附加到`组件/DOM`上，`DOM`也还没更新。
+
+## 2. Usage
+
+### Injecting dynamic styles from CSS-in-JS libraries
+>传统下，可以使用纯`CSS`为`React`组件设计样式，有些团队更喜欢直接在`JS`代码中设置样式。这通常需要使用`CSS-in-JS`的库或者工具。
+
+- 通过编译器静态提取CSS文件
+- 行内样式，例如`<div style={{ opacity: 1 }}>`（可以使用`useInsertionEffect`解决
+- 运行时注入`style`标签（不被推荐
+
+```ts
+// 调用useInsertionEffect在DOM更新前插入样式
+// Inside your CSS-in-JS library
+let isInserted = new Set();
+function useCSS(rule) {
+  useInsertionEffect(() => {
+    // As explained earlier, we don't recommend runtime injection of <style> tags.
+    // But if you have to do it, then it's important to do in useInsertionEffect.
+    if (!isInserted.has(rule)) {
+      isInserted.add(rule);
+      document.head.appendChild(getStyleForRule(rule));
+    }
+  });
+  return rule;
+}
+
+function Button() {
+  const className = useCSS('...');
+  return <div className={className} />;
+}
+
+// --------------------
+// 如果需要在服务端渲染期间收集CSS rules
+let collectedRulesSet = new Set();
+
+function useCSS(rule) {
+  if (typeof window === 'undefined') {
+    collectedRulesSet.add(rule);
+  }
+  useInsertionEffect(() => {
+    // ...
+  });
+  return rule;
+}
+```
+
+## 3. 一句话总结用法
+>和`useEffect`近乎一致，唯一的区别在于副作用函数执行的时机在`DOM`改变前，通常用于为`DOM`注入样式。
+
+
+
+## [useLayoutEffect](https://react.dev/reference/react/useLayoutEffect)
+
+>它是`useEffect`的一个版本，在浏览器重新绘制屏幕之前触发副作用。
+
+
+```ts
+useLayoutEffect(setup, dependencies?)
+```
+
+## 1. Reference
+
+### Parameters
+
+- 略，参照useEffect。
+
+### Returns
+>`useLayoutEffect`没有返回值。
+
+### Caveats
+
+- 在组件的顶层作用域中调用，不能在循环或者条件语句中调用。
+- 当严格模式中，`React`会额外调用一次setup和cleanup（副作用函数和清除副作用函数）在第一次调用setup前。
+- 如果你的依赖项是定义在组件内部的对象或者函数，可能会造成副作用函数多次调用，为了修复这个问题，移除不必要的对象和函数依赖。
+- `Effect`只在客户端运行，在服务端渲染期间不会允许。
+- 在`useLayout`内部的所有状态更新都会阻塞浏览器绘制屏幕，可能会导致应用缓慢，尽可能推荐使用`useEffect`。
+
+## 2. Usage
+
+### Measuring layout before the browser repaints the screen
+
+>大多数组件都不需要在渲染时知道它们在屏幕中的定位和尺寸，它们仅仅返回`JSX`，浏览器计算它们的布局绘制屏幕。
+
+```ts
+// 这个例子中需要在浏览器绘制屏幕前，获取到元素的高度
+function Tooltip() {
+  const ref = useRef(null);
+  const [tooltipHeight, setTooltipHeight] = useState(0); // You don't know real height yet
+
+  useLayoutEffect(() => {
+    const { height } = ref.current.getBoundingClientRect();
+    setTooltipHeight(height); // Re-render now that you know the real height
+  }, []);
+
+  // ...use tooltipHeight in the rendering logic below...
+}
+```
+
+## 3. Troubleshooting 
+
+### I’m getting an error: ”useLayoutEffect does nothing on the server”
+
+>`useLayoutEffect`的目的是为了让你的组件使用布局信息进行渲染。但在使用服务端渲染时，渲染初始内容是在`JS`代码执行之前，这会导致读不到布局信息。
+
+- 渲染初始内容
+- 在浏览器绘制屏幕前测量布局
+- 使用读到的布局信息渲染最后内容
+
+
+## 4. 一句话总结用法
+>和`useEffect`近乎一致，唯一的区别在于`useLayoutEffect`执行副作用函数时会阻塞浏览器渲染，在浏览器绘制屏幕之前执行。
+
+
+## [useMemo](https://react.dev/reference/react/useMemo)
+
+>在组件重新渲染之间缓存计算结果。（由于每一次状态更新都会导致组件重新渲染
+
+```ts
+const cachedValue = useMemo(calculateValue, dependencies)
+```
+
+## 1. Reference
+
+### Parameters
+
+- `calculateValue`：需要缓存值的计算函数，它必须是纯函数，没有任何参数，返回一个任意类型的值。`React`将会调用这个函数在首次渲染期间，在下次渲染时`React`将会返回相同的结果（如果`dependencies`在上一次渲染后没有任何变化），否则`React`将再次调用这个`calculateValue`拿到最新的返回结果进行缓存
+
+- `dependencies`：在`calculateValue`中使用的所有响应值的列表，响应值包含`props`、`state`以及所有变量，函数声明包含在组件内部的。依赖性列表必须具体恒定数量的项，`React`将使用`Object.is`比较每个依赖性与其先前的值
+
+### Returns
+>在组件首次渲染中，`useMemo`的返回值是`calculateValue`调用后的返回值;在下一个渲染期间，它要么是上次渲染缓存的值，要么是再次调用`calculateValue`的返回值。
+
+### Caveats
+
+- 只能在组件的顶层作用域中调用，不能在循环和条件语句中调用
+- 严格模式中，`React`会调用计算函数两次，这是为了检查是不是纯函数，开发环境的行为
+
+## 2. Usage
+
+### Skipping expensive recalculations
+
+>`useCache`在重新渲染之间缓存一个计算结果，直到它的依赖性发生变化
+
+```ts
+// 如果这个TodoList更新了状态，或者接受了一个新的props，这个filterTodos函数就会重新执行
+// 通常这不是一个问题，因为大多数计算都是非常快的，如果filter了一个大的数组，或者做了一些"昂贵"的计算
+// 你可能就想跳过它（如果数据没有发生改变
+function TodoList({ todos, tab, theme }) {
+  const visibleTodos = filterTodos(todos, tab);
+  // ...
+}
+
+// fix
+// 用useMemo包裹这个计算函数
+function TodoList({ todos, tab, theme }) {
+  const visibleTodos = useMemo(() => filterTodos(todos, tab), [todos, tab])
+  // ...
+}
+```
+
+### Skipping re-rendering of components 
+
+>某些情况下，`useMemo`能优化子组件重新渲染的性能问题，默认情况下当一个组件重新渲染时，`React`会递归地渲染它的所有子组件
+
+```ts
+// 这里当TodoList因为theme重新渲染时，List组件也会重新渲染
+// 如果这个重新渲染很慢，就需要告诉List组件跳过这次渲染
+function TodoList({ todos, tab, theme }) {
+  // ...
+  return (
+    <div className={theme}>
+      <List items={visibleTodos} />
+    </div>
+  );
+}
+
+// fix
+import { useMemo } from 'react'
+
+const List = useMemo(function List({ items })) {
+  // ...
+}
+```
+
+### Memoizing a dependency of another Hook
+
+```ts
+// 假设这个visibleItems依赖一个直接在组件内部创建的对象
+function Dropdown({ allItems, text }) {
+
+  // 当这个这个组件Dropdown重新渲染时，所有组件内部的代码都会重新执行，因此
+  // searchOptions每一次都是不同的新对象，就会导致每次都要重新计算searchItems
+  const searchOptions = { matchMode: 'whole-word', text };
+
+  const visibleItems = useMemo(() => {
+    return searchItems(allItems, searchOptions);
+  }, [allItems, searchOptions]); 
+  // ...
+}
+
+// fix
+function Dropdown({ allItems, text }) {
+  
+  // text改变时，才会创建一个新对象
+  const searchOptions = useMemo(() => {
+    return { matchMode: 'whole-word', text };
+  }, [text]);
+
+  const visibleItems = useMemo(() => {
+    return searchItems(allItems, searchOptions);
+  }, [allItems, searchOptions]);
+  // ...
+}
+
+// better fix
+function Dropdown({ allItems, text }) {
+  const visibleItems = useMemo(() => {
+    const searchOptions = { matchMode: 'whole-word', text };
+    return searchItems(allItems, searchOptions);
+  }, [allItems, text]);
+  // ...
+}
+```
+
+### Memoizing a function
+
+```ts
+function ProductPage({ productId, referrer }) {
+  // 和对象一样，每次组件渲染时，这个函数都会重新声明，每一次渲染都是一个新的函数
+  // 由于Form是被memo包裹的，当这个函数不变时是不会重新渲染的
+  function handleSubmit(orderDetails) {
+    post('/product/' + productId + '/buy', {
+      referrer,
+      orderDetails
+    });
+  }
+
+  // 假设这个Form组件是包裹在一个memo内的，这是传递了一个函数给它
+  return <Form onSubmit={handleSubmit} />;
+}
+
+
+// fix
+function Page({ productId, referrer }) {
+  // 将这个函数通过useMemo包裹
+  const handleSubmit = useMemo(() => {
+    return (orderDetails) => {
+      post('/product/' + productId + '/buy', {
+        referrer,
+        orderDetails
+      });
+    };
+  }, [productId, referrer]);
+
+  return <Form onSubmit={handleSubmit} />;
+}
+```
+
+## 3. Troubleshooting 
+
+### My calculation runs twice on every re-render
+
+>严格模式下开发环境的行为，略
+
+### My useMemo call is supposed to return an object, but returns undefined
+
+>JS箭头函数返回对象的简写语法问题，略
+
+### Every time my component renders, the calculation in useMemo re-runs
+
+>确保是否写了依赖项数组，略
+
+### I need to call useMemo for each list item in a loop, but it’s not allowed
+
+>不能在循环中直接调用`Hooks`
+
+```ts
+function ReportList({ items }) {
+  return (
+    <article>
+      {items.map(item => {
+        // You can't call useMemo in a loop like this:
+        const data = useMemo(() => calculateReport(item), [item]);
+        return (
+          <figure key={item.id}>
+            <Chart data={data} />
+          </figure>
+        );
+      })}
+    </article>
+  );
+}
+
+// fix
+function ReportList({ items }) {
+  return (
+    <article>
+      {items.map(item =>
+        <Report key={item.id} item={item} />
+      )}
+    </article>
+  );
+}
+
+// 把Report提取出来作为一个组件，缓存每一次的计算结果
+function Report({ item }) {
+  // Call useMemo at the top level:
+  const data = useMemo(() => calculateReport(item), [item]);
+  return (
+    <figure>
+      <Chart data={data} />
+    </figure>
+  );
+}
+
+// better fix
+function ReportList({ items }) {
+  // ...
+}
+
+// 直接缓存Report组件，当依赖项item没有发生变化时跳过重新渲染
+const Report = memo(function Report({ item }) {
+  const data = calculateReport(item);
+  return (
+    <figure>
+      <Chart data={data} />
+    </figure>
+  );
+});
+```
+
+## 4. 一句话总结用法
+
+>`useMemo`接受两个参数，第一个参数是函数，会调用这个函数然后把其返回值缓存起来，第二个参数是依赖项数组(确保这些依赖在这个函数中使用)，`React`通过`Object.is`去比较依赖项的变化，如果没有发生变化，缓存的结果和上次渲染期间是相同的；否则会重新调用这个函数，获取最新的返回值缓存起来。
+
+## [useReducer](https://react.dev/reference/react/useReducer)
+
+>给组件添加一个`reducer`。
+
+```ts
+const [state, dispatch] = useReducer(reducer, initialArg, init?)
+```
+
+## 1. Reference
+
+### Parameters
+
+- `reducer`：指定如何更新状态的`reducer`函数，必须是纯函数，接收`state`和`action`作为参数，需要返回下一个`状态`,  `state`和`action`可以是任意类型。
+
+- `initialArg`：计算状态的初始值，可以是任意类型，如何从它计算初始值取决于下一个参数`init`。
+
+- `init`：初始化函数，需要返回一个初始状态，如果没有传入这个初始化函数，那么初始状态就是`initialArg`，否则初始状态就是`init(initialArg)`的调用结果（返回值。
+
+### Returns
+
+>`useReducer`返回一个数组，带有两个特殊的值。
+
+- `current state`：在组件首次渲染期间被设置为`init(initialArg)`或者`initialArg`（没有init）
+
+
+## [useRef](https://react.dev/reference/react/useRef)
+
+>引用一个不需要渲染的值。
+
+```ts
+const ref = useRef(initialValue)
+```
+
+## 1. Reference
+
+### Parameters
+
+- `initialValue`：ref对象的`current`属性的初始值，可以是任意类型，会在首次渲染之后被忽略。
+
+### Returns
+>返回一个对象只有一个`current`属性。这个`current`属性初始值是传递的`initialValue`，之后可以把它设置成其他值。如果把ref对象作为`JSX`的`ref`属性传递给`React`，`React`会为它设置`current`属性。
+
+### Caveats
+
+- 可以修改`ref.current`属性，它是可变的，如果把它用于渲染，就不该修改它。
+- 改变`ref.current`属性不会触发`React`重新渲染。
+- 不要写入和读取`ref.current`在渲染期间（除了首次渲染）。
+- 严格模式下的开发环境行为，略
+
+## 2. Usage 
+
+### Referencing a value with a ref 
+
+>`useRef`返回一个具有单个`current`属性 的`ref`对象，并初始化为你提供的`initial value`，在之后的渲染中都是同一个对象（持久化），改变ref不会触发重新渲染
+
+- 可以在重新渲染期间存储信息（不像普通对象，每次渲染都会重置），引用的值被持久化。
+- 改变它不会触发重新渲染（不像`state`，会触发重新渲染）
+
+```ts
+import { useRef } from 'react';
+
+export default function Counter() {
+  // 记录按钮点击的次数，由于不用于组件渲染，可以不使用state
+  let ref = useRef(0);
+
+  function handleClick() {
+    ref.current = ref.current + 1;
+    alert('You clicked ' + ref.current + ' times!');
+  }
+
+  return (
+    <button onClick={handleClick}>
+      Click me!
+    </button>
+  );
+}
+```
+
+### Manipulating the DOM with a ref
+
+>通过`ref`操作`DOM`是非常常见的，`React`内置了对它的支持。
+
+```ts
+import { useRef } from 'react';
+
+export default function Form() {
+  const inputRef = useRef(null);
+
+  function handleClick() {
+    inputRef.current.focus();
+  }
+
+  return (
+    <>
+      // 将这个ref对象传递给操作节点的ref属性
+      <input ref={inputRef} />
+      <button onClick={handleClick}>
+        Focus the input
+      </button>
+    </>
+  );
+}
+```
+
+Examples of manipulating the DOM with useRef
+
+```ts
+import { forwardRef, useRef } from 'react';
+
+// 通过forwardRef向父组件暴露ref
+const MyInput = forwardRef((props, ref) => {
+  return <input {...props} ref={ref} />;
+});
+
+export default function Form() {
+  const inputRef = useRef(null);
+
+  function handleClick() {
+    inputRef.current.focus();
+  }
+
+  return (
+    <>
+      <MyInput ref={inputRef} />
+      <button onClick={handleClick}>
+        Focus the input
+      </button>
+    </>
+  );
+}
+```
+
+### Avoiding recreating the ref contents
+>`React`会保存首次的ref初始值，并在后续渲染中忽视它。
+
+```ts
+function Video() {
+  // 这里new VideoPlayer的结果只会在首次渲染时使用，但是每次渲染都会调用这个方法
+  const playerRef = useRef(new VideoPlayer());
+  // ...
+}
+
+// fix
+function Video() {
+  const playerRef = useRef(null)
+  // 通常在渲染期间写入和读取current是不被允许的，但这种情况下可以
+  // 条件只在初始化渲染时执行，行为是可预测的
+  if (playerRef.current === null) {
+    playerRef.current = new VideoPlayer()
+  }
+}
+```
+
+## 3. Troubleshooting 
+
+### I can’t get a ref to a custom component 
+
+>无法在函数式组件上直接使用`ref`。
+
+```ts
+import { forwardRef } from 'react';
+
+// 可以通过forwardRef，把ref转发到组件内部的DOM节点上
+const MyInput = forwardRef(({ value, onChange }, ref) => {
+  return (
+    <input
+      value={value}
+      onChange={onChange}
+      ref={ref}
+    />
+  );
+});
+
+const inputRef = useRef(null);
+
+return <MyInput ref={inputRef} />;
+```
+
+## 4. 一句话总结用法
+>`useRef`可以持久化的保存一个值或者是一个`DOM节点`，`React元素`，它接收一个参数，这个参数在首次渲染期间会传递给它返回`ref对象`的`current`属性，`current`属性是可修改的，修改它不会触发`React`重新渲染。
+
 ## [useState](https://react.dev/reference/react/useState)
 
 >用于在函数式组件中声明状态。
@@ -1136,518 +1780,12 @@ function handleClick() {
 
 ## 4. 一句话总结用法
 
->`useState`接受两个参数，第一个是状态的初始值，如果初始值是函数，会在初始化渲染期间调用这个函数，并将其返回值存储起来；第二个参数是更新状态的函数，这个更新函数调用时，传递的参数如果是函数会接收到上一次状态的值，然后将其调用结果作为新的状态更新。
+>`useState`接受两个参数，第一个是状态的初始值，如果初始值是函数，会在组件首次渲染期间调用这个函数，并将其返回值存储起来；第二个参数是更新状态的函数，这个更新函数调用时，传递的参数如果是函数会接收到上一次状态的值，然后将其调用结果作为新的状态更新。
 
-## [useInsertionEffect]
+## [useSyncExternalStore](https://react.dev/reference/react/useSyncExternalStore)
 
->它是`useEffect`的一个版本，在DOM改变之前触发副作用。
+todo
 
-```ts
-useInsertionEffect(setup, dependencies?)
-```
+## [useTransition](https://react.dev/reference/react/useTransition)
 
-## 1. Reference
-
-### Parameters 
-
-- 略，参照useEffect。
-
-### Returns
->`useInsertionEffect`没有返回值
-
-### Caveats
-
-- 仅仅在客户端执行，不会在服务端渲染期间执行。
-- 不能在`useInsertionEffect`内部更新状态。
-- 在运行时，`ref`还没被附加到`组件/DOM`上，`DOM`也还没更新。
-
-## 2. Usage
-
-### Injecting dynamic styles from CSS-in-JS libraries
->传统下，可以使用纯`CSS`为`React`组件设计样式，有些团队更喜欢直接在`JS`代码中设置样式。这通常需要使用`CSS-in-JS`的库或者工具。
-
-- 通过编译器静态提取CSS文件
-- 行内样式，例如`<div style={{ opacity: 1 }}>`（可以使用`useInsertionEffect`解决
-- 运行时注入`style`标签（不被推荐
-
-```ts
-// 调用useInsertionEffect在DOM更新前插入样式
-// Inside your CSS-in-JS library
-let isInserted = new Set();
-function useCSS(rule) {
-  useInsertionEffect(() => {
-    // As explained earlier, we don't recommend runtime injection of <style> tags.
-    // But if you have to do it, then it's important to do in useInsertionEffect.
-    if (!isInserted.has(rule)) {
-      isInserted.add(rule);
-      document.head.appendChild(getStyleForRule(rule));
-    }
-  });
-  return rule;
-}
-
-function Button() {
-  const className = useCSS('...');
-  return <div className={className} />;
-}
-
-// --------------------
-// 如果需要在服务端渲染期间收集CSS rules
-let collectedRulesSet = new Set();
-
-function useCSS(rule) {
-  if (typeof window === 'undefined') {
-    collectedRulesSet.add(rule);
-  }
-  useInsertionEffect(() => {
-    // ...
-  });
-  return rule;
-}
-```
-
-## 3. 一句话总结用法
->和`useEffect`近乎一致，唯一的区别在于副作用函数执行的时机在`DOM`改变前，通常用于为`DOM`注入样式。
-
-
-
-## [useLayoutEffect](https://react.dev/reference/react/useLayoutEffect)
-
->它是`useEffect`的一个版本，在浏览器重新绘制屏幕之前触发副作用。
-
-
-```ts
-useLayoutEffect(setup, dependencies?)
-```
-
-## 1. Reference
-
-### Parameters
-
-- 略，参照useEffect。
-
-### Returns
->`useLayoutEffect`没有返回值。
-
-### Caveats
-
-- 在组件的顶层作用域中调用，不能在循环或者条件语句中调用。
-- 当严格模式中，`React`会额外调用一次setup和cleanup（副作用函数和清除副作用函数）在第一次调用setup前。
-- 如果你的依赖项是定义在组件内部的对象或者函数，可能会造成副作用函数多次调用，为了修复这个问题，移除不必要的对象和函数依赖。
-- `Effect`只在客户端运行，在服务端渲染期间不会允许。
-- 在`useLayout`内部的所有状态更新都会阻塞浏览器绘制屏幕，可能会导致应用缓慢，尽可能推荐使用`useEffect`。
-
-## 2. Usage
-
-### Measuring layout before the browser repaints the screen
-
->大多数组件都不需要在渲染时知道它们在屏幕中的定位和尺寸，它们仅仅返回`JSX`，浏览器计算它们的布局绘制屏幕。
-
-```ts
-// 这个例子中需要在浏览器绘制屏幕前，获取到元素的高度
-function Tooltip() {
-  const ref = useRef(null);
-  const [tooltipHeight, setTooltipHeight] = useState(0); // You don't know real height yet
-
-  useLayoutEffect(() => {
-    const { height } = ref.current.getBoundingClientRect();
-    setTooltipHeight(height); // Re-render now that you know the real height
-  }, []);
-
-  // ...use tooltipHeight in the rendering logic below...
-}
-```
-
-## 3. Troubleshooting 
-
-### I’m getting an error: ”useLayoutEffect does nothing on the server”
-
->`useLayoutEffect`的目的是为了让你的组件使用布局信息进行渲染。但在使用服务端渲染时，渲染初始内容是在`JS`代码执行之前，这会导致读不到布局信息。
-
-- 渲染初始内容
-- 在浏览器绘制屏幕前测量布局
-- 使用读到的布局信息渲染最后内容
-
-
-## 4. 一句话总结用法
->和`useEffect`近乎一致，唯一的区别在于`useLayoutEffect`执行副作用函数时会阻塞浏览器渲染，在浏览器绘制屏幕之前执行。
-
-
-## [useMemo](https://react.dev/reference/react/useMemo)
-
->在组件重新渲染之间缓存计算结果。（由于每一次状态更新都会导致组件重新渲染
-
-```ts
-const cachedValue = useMemo(calculateValue, dependencies)
-```
-
-## 1. Reference
-
-### Parameters
-
-- `calculateValue`：需要缓存值的计算函数，它必须是纯函数，没有任何参数，返回一个任意类型的值。`React`将会调用这个函数在初始化渲染期间，在下次渲染时`React`将会返回相同的结果（如果`dependencies`在上一次渲染后没有任何变化），否则`React`将再次调用这个`calculateValue`拿到最新的返回结果进行缓存
-
-- `dependencies`：在`calculateValue`中使用的所有响应值的列表，响应值包含`props`、`state`以及所有变量，函数声明包含在组件内部的。依赖性列表必须具体恒定数量的项，`React`将使用`Object.is`比较每个依赖性与其先前的值
-
-### Returns
->在初始化渲染中，`useMemo`的返回值是`calculateValue`调用后的返回值;在下一个渲染期间，它要么是上次渲染缓存的值，要么是再次调用`calculateValue`的返回值。
-
-### Caveats
-
-- 只能在组件的顶层作用域中调用，不能在循环和条件语句中调用
-- 严格模式中，`React`会调用计算函数两次，这是为了检查是不是纯函数，开发环境的行为
-
-## 2. Usage
-
-### Skipping expensive recalculations
-
->`useCache`在重新渲染之间缓存一个计算结果，直到它的依赖性发生变化
-
-```ts
-// 如果这个TodoList更新了状态，或者接受了一个新的props，这个filterTodos函数就会重新执行
-// 通常这不是一个问题，因为大多数计算都是非常快的，如果filter了一个大的数组，或者做了一些"昂贵"的计算
-// 你可能就想跳过它（如果数据没有发生改变
-function TodoList({ todos, tab, theme }) {
-  const visibleTodos = filterTodos(todos, tab);
-  // ...
-}
-
-// fix
-// 用useMemo包裹这个计算函数
-function TodoList({ todos, tab, theme }) {
-  const visibleTodos = useMemo(() => filterTodos(todos, tab), [todos, tab])
-  // ...
-}
-```
-
-### Skipping re-rendering of components 
-
->某些情况下，`useMemo`能优化子组件重新渲染的性能问题，默认情况下当一个组件重新渲染时，`React`会递归地渲染它的所有子组件
-
-```ts
-// 这里当TodoList因为theme重新渲染时，List组件也会重新渲染
-// 如果这个重新渲染很慢，就需要告诉List组件跳过这次渲染
-function TodoList({ todos, tab, theme }) {
-  // ...
-  return (
-    <div className={theme}>
-      <List items={visibleTodos} />
-    </div>
-  );
-}
-
-// fix
-import { useMemo } from 'react'
-
-const List = useMemo(function List({ items })) {
-  // ...
-}
-```
-
-### Memoizing a dependency of another Hook
-
-```ts
-// 假设这个visibleItems依赖一个直接在组件内部创建的对象
-function Dropdown({ allItems, text }) {
-
-  // 当这个这个组件Dropdown重新渲染时，所有组件内部的代码都会重新执行，因此
-  // searchOptions每一次都是不同的新对象，就会导致每次都要重新计算searchItems
-  const searchOptions = { matchMode: 'whole-word', text };
-
-  const visibleItems = useMemo(() => {
-    return searchItems(allItems, searchOptions);
-  }, [allItems, searchOptions]); 
-  // ...
-}
-
-// fix
-function Dropdown({ allItems, text }) {
-  
-  // text改变时，才会创建一个新对象
-  const searchOptions = useMemo(() => {
-    return { matchMode: 'whole-word', text };
-  }, [text]);
-
-  const visibleItems = useMemo(() => {
-    return searchItems(allItems, searchOptions);
-  }, [allItems, searchOptions]);
-  // ...
-}
-
-// better fix
-function Dropdown({ allItems, text }) {
-  const visibleItems = useMemo(() => {
-    const searchOptions = { matchMode: 'whole-word', text };
-    return searchItems(allItems, searchOptions);
-  }, [allItems, text]);
-  // ...
-}
-```
-
-### Memoizing a function
-
-```ts
-function ProductPage({ productId, referrer }) {
-  // 和对象一样，每次组件渲染时，这个函数都会重新声明，每一次渲染都是一个新的函数
-  // 由于Form是被memo包裹的，当这个函数不变时是不会重新渲染的
-  function handleSubmit(orderDetails) {
-    post('/product/' + productId + '/buy', {
-      referrer,
-      orderDetails
-    });
-  }
-
-  // 假设这个Form组件是包裹在一个memo内的，这是传递了一个函数给它
-  return <Form onSubmit={handleSubmit} />;
-}
-
-
-// fix
-function Page({ productId, referrer }) {
-  // 将这个函数通过useMemo包裹
-  const handleSubmit = useMemo(() => {
-    return (orderDetails) => {
-      post('/product/' + productId + '/buy', {
-        referrer,
-        orderDetails
-      });
-    };
-  }, [productId, referrer]);
-
-  return <Form onSubmit={handleSubmit} />;
-}
-```
-
-## 3. Troubleshooting 
-
-### My calculation runs twice on every re-render
-
->严格模式下开发环境的行为，略
-
-### My useMemo call is supposed to return an object, but returns undefined
-
->JS箭头函数返回对象的简写语法问题，略
-
-### Every time my component renders, the calculation in useMemo re-runs
-
->确保是否写了依赖项数组，略
-
-### I need to call useMemo for each list item in a loop, but it’s not allowed
-
->不能在循环中直接调用`Hooks`
-
-```ts
-function ReportList({ items }) {
-  return (
-    <article>
-      {items.map(item => {
-        // You can't call useMemo in a loop like this:
-        const data = useMemo(() => calculateReport(item), [item]);
-        return (
-          <figure key={item.id}>
-            <Chart data={data} />
-          </figure>
-        );
-      })}
-    </article>
-  );
-}
-
-// fix
-function ReportList({ items }) {
-  return (
-    <article>
-      {items.map(item =>
-        <Report key={item.id} item={item} />
-      )}
-    </article>
-  );
-}
-
-// 把Report提取出来作为一个组件，缓存每一次的计算结果
-function Report({ item }) {
-  // Call useMemo at the top level:
-  const data = useMemo(() => calculateReport(item), [item]);
-  return (
-    <figure>
-      <Chart data={data} />
-    </figure>
-  );
-}
-
-// better fix
-function ReportList({ items }) {
-  // ...
-}
-
-// 直接缓存Report组件，当依赖项item没有发生变化时跳过重新渲染
-const Report = memo(function Report({ item }) {
-  const data = calculateReport(item);
-  return (
-    <figure>
-      <Chart data={data} />
-    </figure>
-  );
-});
-```
-
-## 4. 一句话总结用法
-
->`useMemo`接受两个参数，第一个参数是函数，会调用这个函数然后把其返回值缓存起来，第二个参数是依赖项数组(确保这些依赖在这个函数中使用)，`React`通过`Object.is`去比较依赖项的变化，如果没有发生变化，缓存的结果和上次渲染期间是相同的；否则会重新调用这个函数，获取最新的返回值缓存起来。
-
-
-## [useRef](https://react.dev/reference/react/useRef)
-
->引用一个不需要渲染的值。
-
-```ts
-const ref = useRef(initialValue)
-```
-
-## 1. Reference
-
-### Parameters
-
-- `initialValue`：ref对象的`current`属性的初始值，可以是任意类型，会在首次渲染之后被忽略。
-
-### Returns
->返回一个对象只有一个`current`属性。这个`current`属性初始值是传递的`initialValue`，之后可以把它设置成其他值。如果把ref对象作为`JSX`的`ref`属性传递给`React`，`React`会为它设置`current`属性。
-
-### Caveats
-
-- 可以修改`ref.current`属性，它是可变的，如果把它用于渲染，就不该修改它。
-- 改变`ref.current`属性不会触发`React`重新渲染。
-- 不要写入和读取`ref.current`在渲染期间（除了初始化渲染）。
-- 严格模式下的开发环境行为，略
-
-## 2. Usage 
-
-### Referencing a value with a ref 
-
->`useRef`返回一个具有单个`current`属性 的`ref`对象，并初始化为你提供的`initial value`，在之后的渲染中都是同一个对象（持久化），改变ref不会触发重新渲染
-
-- 可以在重新渲染期间存储信息（不像普通对象，每次渲染都会重置），引用的值被持久化。
-- 改变它不会触发重新渲染（不像`state`，会触发重新渲染）
-
-```ts
-import { useRef } from 'react';
-
-export default function Counter() {
-  // 记录按钮点击的次数，由于不用于组件渲染，可以不使用state
-  let ref = useRef(0);
-
-  function handleClick() {
-    ref.current = ref.current + 1;
-    alert('You clicked ' + ref.current + ' times!');
-  }
-
-  return (
-    <button onClick={handleClick}>
-      Click me!
-    </button>
-  );
-}
-```
-
-### Manipulating the DOM with a ref
-
->通过`ref`操作`DOM`是非常常见的，`React`内置了对它的支持。
-
-```ts
-import { useRef } from 'react';
-
-export default function Form() {
-  const inputRef = useRef(null);
-
-  function handleClick() {
-    inputRef.current.focus();
-  }
-
-  return (
-    <>
-      // 将这个ref对象传递给操作节点的ref属性
-      <input ref={inputRef} />
-      <button onClick={handleClick}>
-        Focus the input
-      </button>
-    </>
-  );
-}
-```
-
-Examples of manipulating the DOM with useRef
-
-```ts
-import { forwardRef, useRef } from 'react';
-
-// 通过forwardRef向父组件暴露ref
-const MyInput = forwardRef((props, ref) => {
-  return <input {...props} ref={ref} />;
-});
-
-export default function Form() {
-  const inputRef = useRef(null);
-
-  function handleClick() {
-    inputRef.current.focus();
-  }
-
-  return (
-    <>
-      <MyInput ref={inputRef} />
-      <button onClick={handleClick}>
-        Focus the input
-      </button>
-    </>
-  );
-}
-```
-
-### Avoiding recreating the ref contents
->`React`会保存首次的ref初始值，并在后续渲染中忽视它。
-
-```ts
-function Video() {
-  // 这里new VideoPlayer的结果只会在首次渲染时使用，但是每次渲染都会调用这个方法
-  const playerRef = useRef(new VideoPlayer());
-  // ...
-}
-
-// fix
-function Video() {
-  const playerRef = useRef(null)
-  // 通常在渲染期间写入和读取current是不被允许的，但这种情况下可以
-  // 条件只在初始化渲染时执行，行为是可预测的
-  if (playerRef.current === null) {
-    playerRef.current = new VideoPlayer()
-  }
-}
-```
-
-## 3. Troubleshooting 
-
-### I can’t get a ref to a custom component 
-
->无法在函数式组件上直接使用`ref`。
-
-```ts
-import { forwardRef } from 'react';
-
-// 可以通过forwardRef，把ref转发到组件内部的DOM节点上
-const MyInput = forwardRef(({ value, onChange }, ref) => {
-  return (
-    <input
-      value={value}
-      onChange={onChange}
-      ref={ref}
-    />
-  );
-});
-
-const inputRef = useRef(null);
-
-return <MyInput ref={inputRef} />;
-```
-
-## 4. 一句话总结用法
->`useRef`可以持久化的保存一个值或者是一个`DOM节点`，`React元素`，它接收一个参数，这个参数在初始化渲染期间会传递给它返回`ref对象`的`current`属性，`current`属性是可修改的，修改它不会触发`React`重新渲染。
+todo

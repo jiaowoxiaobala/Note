@@ -497,8 +497,30 @@ type Merge<F extends object, S extends object> = {
 
 ### KebabCase
 
+>把`KebabCase`这种字符串转成`kebab-case`。
+
 ```ts
-todo
+// 思路：遍历每一项子字符，判断是否是小写
+type KebabCase<
+  S extends string,
+  Res extends string = ""
+> = S extends `${infer F}${infer R}`
+  // 如果满足小写
+  ? F extends Uncapitalize<F>
+    ? KebabCase<R, `${Res}${F}`>
+    : KebabCase<R, `${Res}${Res extends "" ? "" : "-"}${Lowercase<F>}`>
+  : Res;
+
+// 另一种思路：
+// 这里的S extends `${infer S1}${infer S2}`是匹配第一个子字符S1和后面的所有子字符S2
+type KebabCase<S extends string> = S extends `${infer S1}${infer S2}`
+  ? // S2是否满足小写开头
+    S2 extends Uncapitalize<S2>
+    ? // 每次都把第一个子字符转小写
+      `${Uncapitalize<S1>}${KebabCase<S2>}`
+    : // S2是大写开头，拼接-
+      `${Uncapitalize<S1>}-${KebabCase<S2>}`
+  : S;
 ```
 
 ### Diff
@@ -558,8 +580,29 @@ type ReplaceKeys<T, KS, U> = T extends T
 
 ### Remove Index Signature
 
+>去除对象类型的索引签名。
+
 ```ts
-todo
+// 思路：判断索引string | number | symbol的子类型，不能直接是string | number | symbol类型
+type RemoveIndexSignature<T> = {
+  [k in keyof T as string extends k
+    ? never
+    : number extends k
+    ? never
+    : symbol extends k
+    ? never
+    : k]: T[k];
+};
+
+// 另一种写法
+// PropertyKey -> string | number | symbo
+type RemoveIndexSignature<T, P = PropertyKey> = {
+  // as索引重映射
+  // string extends K ? never : K extends string ? K : never
+  // number extends K ? never : K extends number ? K : never
+  // symbol extends K ? never : K extends symbol ? K : never
+  [K in keyof T as P extends K ? never : K extends P ? K : never]: T[K];
+};
 ```
 
 ### Percentage Parser
