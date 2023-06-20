@@ -507,6 +507,7 @@ function MyApp() {
 ```
 
 ## 4. 一句话总结用法
+
 >`useContext`是一种提供跨组件通信方式的Hook，需要配合`createContext`使用，通过`createContext`创建一个上下文，然后用它返回的上下文对象的`provider`包裹需要接收上下文的所有组件，在这些组件中使用`useContext`就可以获取到传递上下文的值。当上下文的值发生改变时，所有使用的组件都会触发重新渲染。
 
 
@@ -808,6 +809,7 @@ function MyComponent() {
 >如果`Effect`需要在浏览器渲染屏幕前执行，用`useLayoutEffect`代替。
 
 ## 4. 一句话总结用法
+
 >`useEffect`用于在组件中执行副作用，它接收两个参数，一个是副作用函数，这个函数可以返回另一个清理函数（清除副作用产生的影响），`React`会在这个副作用函数重新执行前先执行这个清理函数；第二个参数是依赖项数组，当依赖性发生变化时，`React`会重新执行副作用函数，当依赖性数组为空时，副作用函数在整个组件生命周期中只执行一次，当没有传递依赖性数组时，每次组件重新渲染期间，`React`都会重新执行这个副作用函数。
 
 ## [useImperativeHandle](https://react.dev/reference/react/useImperativeHandle)
@@ -985,8 +987,8 @@ function useCSS(rule) {
 ```
 
 ## 3. 一句话总结用法
->和`useEffect`近乎一致，唯一的区别在于副作用函数执行的时机在`DOM`改变前，通常用于为`DOM`注入样式。
 
+>和`useEffect`近乎一致，唯一的区别在于副作用函数执行的时机在`DOM`改变前，通常用于为`DOM`注入样式。
 
 
 ## [useLayoutEffect](https://react.dev/reference/react/useLayoutEffect)
@@ -1048,6 +1050,7 @@ function Tooltip() {
 
 
 ## 4. 一句话总结用法
+
 >和`useEffect`近乎一致，唯一的区别在于`useLayoutEffect`执行副作用函数时会阻塞浏览器渲染，在浏览器绘制屏幕之前执行。
 
 
@@ -1295,8 +1298,292 @@ const [state, dispatch] = useReducer(reducer, initialArg, init?)
 
 >`useReducer`返回一个数组，带有两个特殊的值。
 
-- `current state`：在组件首次渲染期间被设置为`init(initialArg)`或者`initialArg`（没有init）
+- `current state`：在组件首次渲染期间被设置为`init(initialArg)`或者`initialArg`（没有init）。
+- `dispatch function`：更新状态为不同的值，然后触发组件重新渲染。
 
+### Caveats
+
+- `useReducer`只能在组件的顶层作用域中使用，不能在循环或者条件语句中。
+- 当严格模式下，`React`会调用`reducer`初始化两次，这是开发环境下的行为。
+
+### dispatch function
+
+>通过`useReducer`返回的`dispatch function`可以更新状态并触发重新渲染，接收一个"行为"作为唯一的参数。
+
+```ts
+const [state, dispatch] = useReducer(reducer, { age: 42 })
+
+function handleClick() {
+  dispatch({ type: 'increment_age' })
+}
+```
+
+#### Parameters
+
+- `action`：这个`action`可以是任意类型，按照惯例，是一个带有`type`属性的对象，还可以带有其他附加属性。
+
+#### Returns
+
+>`dispatch function`没有返回值。
+
+#### Caveats
+
+- `dispatch function`仅仅更新状态为了下一次渲染，如果读取状态在调用之后，仍然会得到旧的状态。
+- 如果新的状态和旧的一致（通过`Object.is`比较），`React`会跳过重新渲染。
+- `React`批量更新状态，在所有的事件处理程序运行并调用它们的`set function`后更新屏幕，可以防止在一个事件中多次重新渲染，在少数情况下可能需要强制`React`尽早的更新视图，比如访问`DOM`，可以使用`flushSync`。
+
+
+## 2. Usage
+
+### Adding a reducer to a component
+
+>`useReducer`和`useState`相似，但是它可以把状态更新逻辑移到组件外部的单个函数中。
+
+```ts
+import { useReducer } from 'react';
+
+function reducer(state, action) {
+  if (action.type === 'incremented_age') {
+    // 这里需要返回一个新的状态（引用不能一致
+    // state.get++
+    // return state
+
+    return {
+      age: state.age + 1
+    };
+  }
+  throw Error('Unknown action.');
+}
+
+export default function Counter() {
+  const [state, dispatch] = useReducer(reducer, { age: 42 });
+
+  return (
+    <>
+      <button onClick={() => {
+        dispatch({ type: 'incremented_age' })
+      }}>
+        Increment age
+      </button>
+      <p>Hello! You are {state.age}.</p>
+    </>
+  );
+}
+```
+
+### Writing the reducer function
+
+
+```ts
+import { useReducer } from 'react';
+
+function reducer(state, action) {
+  // 通常会写一个switch语句，在匹配的case下返回一个新的状态
+  switch (action.type) {
+    case 'incremented_age': {
+      return {
+        name: state.name,
+        age: state.age + 1
+      };
+    }
+    case 'changed_name': {
+      return {
+        name: action.nextName,
+        age: state.age
+      };
+    }
+  }
+  // 没有匹配到case，抛出错误
+  throw Error('Unknown action: ' + action.type);
+}
+
+const initialState = { name: 'Taylor', age: 42 };
+
+export default function Form() {
+  const [state, dispatch] = useReducer(reducer, initialState);
+
+  function handleButtonClick() {
+    dispatch({ type: 'incremented_age' });
+  }
+
+  function handleInputChange(e) {
+    dispatch({
+      type: 'changed_name',
+      // 可以传递额外的数据
+      nextName: e.target.value
+    }); 
+  }
+
+  return (
+    <>
+      <input
+        value={state.name}
+        onChange={handleInputChange}
+      />
+      <button onClick={handleButtonClick}>
+        Increment age
+      </button>
+      <p>Hello, {state.name}. You are {state.age}.</p>
+    </>
+  );
+}
+```
+
+### Avoiding recreating the initial state 
+
+>`React`存储初始状态一次，后续的渲染中将忽视。
+
+```ts
+function createInitialState(username) {
+  // ...
+}
+
+function TodoList({ username }) {
+  // 这里createInitialState(username)的结果只会被用在首次渲染，但是后面的每次渲染都会调用
+  const [state, dispatch] = useReducer(reducer, createInitialState(username));
+  // ...
+}
+
+// fix
+function createInitialState(username) {
+  // ...
+}
+
+function TodoList({ username }) {
+  // 直接传入这个函数，会接收第二个useReducer的第二个参数
+  const [state, dispatch] = useReducer(reducer, username, createInitialState);
+}
+```
+
+## 3.Troubleshooting 
+
+### I’ve dispatched an action, but logging gives me the old state value 
+
+>状态像一个快照，更新状态在下一次渲染中带有新的状态，但是不会影响这个状态在已经运行的事件处理程序中。
+
+```ts
+function handleClick() {
+  console.log(state.age);  // 42
+
+  dispatch({ type: 'incremented_age' }); // Request a re-render with 43
+  console.log(state.age);  // Still 42!
+
+  setTimeout(() => {
+    console.log(state.age); // Also 42!
+  }, 5000);
+}
+
+// 如果想要下一次状态，可以调用reducer函数
+const action = { type: 'incremented_age' };
+dispatch(action);
+
+const nextState = reducer(state, action);
+console.log(state);     // { age: 42 }
+console.log(nextState); // { age: 43 }
+```
+
+### I’ve dispatched an action, but the screen doesn’t update 
+
+>如果更新的状态和上一次状态一样，`React`会忽视这次更新。
+
+```ts
+function reducer(state, action) {
+  switch (action.type) {
+    case 'incremented_age': {
+      // Wrong: mutating existing object
+      state.age++;
+      return state;
+    }
+    case 'changed_name': {
+      // Wrong: mutating existing object
+      state.name = action.nextName;
+      return state;
+    }
+    // ...
+  }
+}
+
+
+// fix
+function reducer(state, action) {
+  switch (action.type) {
+    case 'incremented_age': {
+      // Correct: creating a new object
+      return {
+        ...state,
+        age: state.age + 1
+      };
+    }
+    case 'changed_name': {
+      // Correct: creating a new object
+      return {
+        ...state,
+        name: action.nextName
+      };
+    }
+    // ...
+  }
+}
+```
+
+### A part of my reducer state becomes undefined after dispatching
+
+>当返回新的状态时，确保复制已有的字段。
+
+```ts
+function reducer(state, action) {
+  switch (action.type) {
+    case 'incremented_age': {
+      return {
+        ...state, // Don't forget this!
+        age: state.age + 1
+      };
+    }
+    // ...
+  }
+}
+```
+
+### My entire reducer state becomes undefined after dispatching
+
+>可能在某次case忘记返回新的状态了，如果没有匹配到任何case，可以直接抛出一个错误。
+
+```ts
+function reducer(state, action) {
+  switch (action.type) {
+    case 'incremented_age': {
+      // ...
+    }
+    case 'edited_name': {
+      // ...
+    }
+  }
+  throw Error('Unknown action: ' + action.type);
+}
+```
+
+### I’m getting an error: “Too many re-renders”
+
+>不要在渲染期间更新状态。
+
+```ts
+// Wrong: calls the handler during render
+return <button onClick={handleClick()}>Click me</button>
+
+// Correct: passes down the event handler
+return <button onClick={handleClick}>Click me</button>
+
+// Correct: passes down an inline function
+return <button onClick={(e) => handleClick(e)}>Click me</button>
+```
+
+### My reducer or initializer function runs twice
+
+>是严格模式中开发环境下的默认行为。
+
+## 4. 一句话总结用法
+
+>`useReducer`用于组件中添加状态（类似`useState`），接收三个参数，第一个是`reducer`函数，维护状态的更新操作；第二个是一个状态的初始值`initialArg`，第三个是一个初始化函数`init`，会接收`initialArg`为参数。在首次渲染期间，如果没有传递`init`，初始状态就是`initialArg`，否则为`init`的调用结果。
 
 ## [useRef](https://react.dev/reference/react/useRef)
 
@@ -1452,6 +1739,7 @@ return <MyInput ref={inputRef} />;
 ```
 
 ## 4. 一句话总结用法
+
 >`useRef`可以持久化的保存一个值或者是一个`DOM节点`，`React元素`，它接收一个参数，这个参数在首次渲染期间会传递给它返回`ref对象`的`current`属性，`current`属性是可修改的，修改它不会触发`React`重新渲染。
 
 ## [useState](https://react.dev/reference/react/useState)

@@ -607,8 +607,31 @@ type RemoveIndexSignature<T, P = PropertyKey> = {
 
 ### Percentage Parser
 
+
+>实现类型`PercentageParser`。根据规则`/^(\+|\-)?(\d*)?(\%)?$/`匹配类型`T`。匹配的结果由三部分组成，分别是：[正负号, 数字, 单位]，如果没有匹配，则默认是空字符串。
+
 ```ts
-todo
+type PercentageParser<S extends string> = S extends `${infer L}${infer R}`
+  ? // 匹配出第一个字符L是否匹配'-' | '+'
+    L extends "-" | "+"
+    // 后面的所有子字符是否匹配`${infer U}%`
+    ? R extends `${infer U}%`
+      ? [L, U, "%"]
+      : [L, R, ""]
+    // 第一个子字符不匹配'-' | '+'，判断S是否匹配`${infer U}%`
+    : S extends `${infer U}%`
+    ? ["", U, "%"]
+    : ["", S, ""]
+  : ["", "", ""];
+
+// 另一种解法
+type CheckPrefix<T> = T extends "+" | "-" ? T : never;
+type CheckSuffix<T> = T extends `${infer P}%` ? [P, "%"] : [T, ""];
+type PercentageParser<A extends string> = A extends `${CheckPrefix<
+  infer L
+>}${infer R}`
+  ? [L, ...CheckSuffix<R>]
+  : ["", ...CheckSuffix<A>];
 ```
 
 ### Drop Char
@@ -766,16 +789,74 @@ type FlipArguments<T extends (...args: any[]) => any> = T extends (
 ```
 
 ### FlattenDepth
-递归地将数组展开，直到达到指定的深度
+>递归地将数组展开，直到达到指定的深度。
 
 ```ts
-todo
+// 思路：把每次遍历到的成员，如果是数组则扁平S层
+type FlattenDepth<
+  T extends unknown[],
+  S extends number = 1,
+  U extends unknown[] = []
+  // 达到扁平层数，直接返回
+> = U["length"] extends S
+  ? T
+  : T extends [infer F, ...infer R]
+  ? F extends unknown[]
+    // F是数组类型，把F扔进去扁平
+    ? [...FlattenDepth<F, S, [...U, unknown]>, ...FlattenDepth<R, S>] 
+    // F不是数组，把扁平的记录传递
+    : [F, ...FlattenDepth<R, S, U>]
+  : T;
+
+// 另一种思路：每次把整体数组扁平一次（更好理解
+// 整体数组扁平一次
+type FlattenOnce<T extends unknown[], U extends unknown[] = []> = T extends [
+  infer F,
+  ...infer R
+]
+  ? F extends unknown[]
+    ? FlattenOnce<R, [...U, ...F]>
+    : FlattenOnce<R, [...U, F]>
+  : U;
+
+type FlattenDepth<
+  T extends unknown[],
+  U extends number = 1,
+  P extends unknown[] = []
+  // 当扁平次数达到指定次数时，直接返回T
+> = P["length"] extends U
+  ? T
+  // 当扁平完成后，直接返回T
+  : FlattenOnce<T> extends T
+  ? T
+  // 否则扁平一次
+  : FlattenDepth<FlattenOnce<T>, U, [...P, unknown]>;
 ```
 
 ### BEM style string
 
+>实现一个`CSS BEM`格式命名规则的类型。
+
 ```ts
-todo
+// 思路：数组[number]可以取到该数组所有成员的联合类型，这里只需要额外判断是否是空数组即可
+type BEM<
+  B extends string,
+  E extends string[],
+  M extends string[]
+> = `${B}${E["length"] extends 0 ? "" : "__"}${E["length"] extends 0
+  ? ""
+  : E[number]}${M["length"] extends 0 ? "" : "--"}${M["length"] extends 0
+  ? ""
+  : M[number]}`;
+
+
+type BEM<
+  B extends string,
+  E extends string[],
+  M extends string[]
+> = `${B}${E extends [] ? "" : `__${E[number]}`}${M extends []
+  ? ""
+  : `--${M[number]}`}`;
 ```
 
 ### InorderTraversal
@@ -802,8 +883,23 @@ todo
 
 ### AllCombinations
 
+>实现一个类型，返回字符串中子字符的所有组合。
+
 ```ts
-todo
+// 将字符串转成子字符组成的联合类型
+type StringToUnion<S> = S extends `${infer F}${infer R}`
+  ? F | StringToUnion<R>
+  : "";
+
+// 当T只有一位时，Exclude<T, K>会出现never的情况，[T] extends [never] 就是规避这种情况
+type AllCombinations<S extends string, T extends string = StringToUnion<S>> = [
+  T
+] extends [never]
+  ? ""
+  // 这里需要把每次递归的结果联合起来
+  : '' | {
+      [K in T]: `${K}${AllCombinations<"", Exclude<T, K>>}`;
+    }[T];
 ```
 
 ### Greater Than
@@ -1208,10 +1304,17 @@ type Integer<T extends string | number> = number extends T
   : T;
 ```
 
-### ToPrimitive 
+### ToPrimitive
+
+>给定一个对象，将其所有键的类型转为原始类型。
 
 ```ts
-todo
+type ToPrimitive<T> = T extends object
+  ? { [K in keyof T]: ToPrimitive<T[K]> }
+  // 通过valueOf取出它的原始类型
+  : T extends { valueOf: () => infer R }
+    ? R
+    : T
 ```
 
 ### DeepMutable
