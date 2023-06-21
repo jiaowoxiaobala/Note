@@ -967,8 +967,34 @@ type IsTuple<T> = [T] extends [never]
 
 ### Chunk
 
+>`Chunk<T, N>`接受两个必需的类型参数，`T`必须是元组，`N`必须是>=1的整数。
+
 ```ts
-todo
+// ---------test case------------
+
+type test1 = Chunk<[], 1>; // []
+type test2 = Chunk<[1, 2, 3], 1>; // [[1], [2], [3]]>>
+type test3 = Chunk<[1, 2, 3], 2>; // [[1, 2], [3]]>>
+type test4 = Chunk<[1, 2, 3, 4], 2>; // [[1, 2], [3, 4]]>>
+type test5 = Chunk<[1, 2, 3, 4], 5>; // [[1, 2, 3, 4]]>>
+type test6 = Chunk<[1, true, 2, false], 2>; // [[1, true], [2, false]]>>
+
+// ------------code---------------
+
+type Chunk<
+  T extends unknown[],
+  N extends number,
+  // 用于计数 + 存储
+  C extends unknown[] = []
+> = T extends [infer F, ...infer R]
+  ? C["length"] extends N
+    // 到达存储数量时，就把C返回，重新计数
+    ? [C, ...Chunk<T, N>]
+    : Chunk<R, N, [...C, F]>
+  // 数组遍历完时，判断C是否存有成员
+  : C extends []
+  ? []
+  : [C];
 ```
 
 ### Fill
