@@ -24,7 +24,7 @@ const cacheFn = useCallback(fn, dependencies)
 
 ### Caveats
 
-- 只能在组件的顶层作用域中调用，不能在循环和条件语句中调用
+- 只能在组件的顶层作用域中或者自定义Hook中调用，不能在循环和条件语句中调用
 - 略
 
 
@@ -511,6 +511,208 @@ function MyApp() {
 >`useContext`是一种提供跨组件通信方式的Hook，需要配合`createContext`使用，通过`createContext`创建一个上下文，然后用它返回的上下文对象的`provider`包裹需要接收上下文的所有组件，在这些组件中使用`useContext`就可以获取到传递上下文的值。当上下文的值发生改变时，所有使用的组件都会触发重新渲染。
 
 
+## [useDebugValue](https://react.dev/reference/react/useDebugValue)
+
+>用于在自定义Hook加标签（`DevTools`调试。
+
+```ts
+useDebugValue(value, format?)
+```
+
+## 1. Reference
+
+### Parameters
+
+- `value`：在`DevTools`中显示的值，可以是任意类型。
+
+- `format`：一个格式化函数，`DevTools`会把`value`作为参数调用这个函数，然后显示返回的格式化值（可以是任意类型）如果没有指定这个函数，则会显示`value`。
+
+### Returns
+
+>`useDebugValue`没有返回值。
+
+## 2. Usage
+
+### Adding a label to a custom Hook
+
+>在自定义Hook中调用`useDebugValue`，可以在开发工具显示只读的调试值。
+
+```ts
+import { useDebugValue } from 'react';
+
+function useOnlineStatus() {
+  // ...
+  useDebugValue(isOnline ? 'Online' : 'Offline');
+  // ...
+}
+```
+
+### Deferring formatting of a debug value 
+
+>可以传递一个格式化函数作为`useDebugValue`。
+
+```ts
+// 这个格式化函数接收useDebugValue的第一个参数
+useDebugValue(date, date => date.toDateString());
+```
+
+## 3. 一句话总结用法
+
+>`useDebugValue`可以给自定义`Hook`打标签，方便`React`开发工具调试`Hook`。接受两个参数，第一个是需要显示的值`value`，第二个是接受`value`作为参数的格式化函数`format function`，返回值会代替`value`；如果没有传递`format function`，显示的值是`value`。
+
+
+## [useDeferredValue](https://react.dev/reference/react/useDeferredValue)
+
+>用于延迟更新视图的一部分。（延迟更新某个值的渲染
+
+```ts
+const deferredValue = useDeferredValue(value)
+```
+
+## 1. Reference
+
+### Parameters
+
+- `value`：想要延迟的值，可以是任意类型。
+
+### Returns
+
+>在初始渲染期间，这个返回的延迟值就是传递给`useDeferredValue`的参数，在之后更新期间，`React`会首先尝试用旧值渲染，然后用新值在后台重新渲染。
+
+### Caveats
+
+- 传递给`useDeferredValue`的值应该是原始值（像数值，字符串）或者是在渲染之外创建的对象，如果是在渲染期间创建的对象，那么这个对象在每次渲染期间都是不同的。
+
+- 当`useDeferredValue`接收到一个不同的值时（`Object.is`比较），除了当前渲染（仍然使用旧值），还会在后台安排一个带有新值的重新渲染，后台的渲染是可中断的，如果有另外一个更新的值，`React`将重新开始后台渲染。
+
+- `useDeferredValue`和`<Suspense>`整合在一起时，如果由新值引起的后台更新挂起了UI（等待渲染到屏幕），用户将看不到`<Suspense>`的`fallback`，他们将看到延迟的旧值直到数据加载。
+
+- `useDeferredValue`不会阻止额外的网络请求。
+
+- `useDeferredValue`本身没有引起固定的延迟，一旦`React`完成了旧值的重新渲染，就会立即在后台用新的延迟值重新渲染。任何由事件引起的更新都会中断后台重新渲染，并优先于它。
+
+- 由`useDeferredValue`引起的后台渲染在提交到屏幕前不会触发影响，当后台渲染挂起时，它的影响将在数据加载和UI更新后运行。
+
+## 2. Usage
+
+### Showing stale content while fresh content is loading
+
+>配合`Suspense`使用的例子。
+
+
+```ts
+// 这个例子中，每次请求搜索数据时，都会先显示loading...
+export default function App() {
+  const [query, setQuery] = useState('');
+  return (
+    <>
+      <label>
+        Search albums:
+        <input value={query} onChange={e => setQuery(e.target.value)} />
+      </label>
+      <Suspense fallback={<h2>Loading...</h2>}>
+        <SearchResults query={query} />
+      </Suspense>
+    </>
+  );
+}
+
+// 使用useDeferredValue
+export default function App() {
+  const [query, setQuery] = useState('');
+  const deferredQuery = useDeferredValue(query);
+  return (
+    <>
+      <label>
+        Search albums:
+        <input value={query} onChange={e => setQuery(e.target.value)} />
+      </label>
+      // 重新搜索数据时，不会看到fallback，而是看到旧的结果直到新的结果完成加载
+      <Suspense fallback={<h2>Loading...</h2>}>
+        <SearchResults query={deferredQuery} />
+      </Suspense>
+    </>
+  );
+}
+```
+
+### Indicating that the content is stale
+
+>上面例子中，感知不到最新查询的结果列表仍在加载，如果加载需要一段时间，可能会导致用户困惑，为了让用户更清楚地看到结果列表与最近的查询不匹配，可以添加一个可视化的展示效果。
+
+```ts
+import { Suspense, useState, useDeferredValue } from 'react';
+import SearchResults from './SearchResults.js';
+
+export default function App() {
+  const [query, setQuery] = useState('');
+  const deferredQuery = useDeferredValue(query);
+  const isStale = query !== deferredQuery;
+  return (
+    <>
+      <label>
+        Search albums:
+        <input value={query} onChange={e => setQuery(e.target.value)} />
+      </label>
+      <Suspense fallback={<h2>Loading...</h2>}>
+        // 增加了一个过渡效果
+        <div style={{
+          opacity: isStale ? 0.5 : 1,
+          transition: isStale ? 'opacity 0.2s 0.2s linear' : 'opacity 0s 0s linear'
+        }}>
+          <SearchResults query={deferredQuery} />
+        </div>
+      </Suspense>
+    </>
+  );
+}
+```
+
+### Deferring re-rendering for a part of the UI
+
+>可以使用`useDeferredValue`作为一种性能优化，当有一部分UI需要延迟重新渲染时，这是有用的。
+
+
+```ts
+// App组件中有个"慢"列表在每次敲击键盘时都要重新渲染
+function App() {
+  const [text, setText] = useState('');
+  return (
+    <>
+      <input value={text} onChange={e => setText(e.target.value)} />
+      <SlowList text={text} />
+    </>
+  );
+}
+
+// 首先用memo包裹，跳过在props相同时重新渲染
+const SlowList = memo(function SlowList({ text }) {
+  // ...
+});
+
+// 然而在props不同时，需要显示不同的视觉输出时会很慢
+// 这时就可以把用useDeferredValue包裹的值作为prop传递给列表
+function App() {
+  const [text, setText] = useState('');
+  const deferredText = useDeferredValue(text);
+  return (
+    <>
+      // useDeferredValue允许你优先更新输入(必须快)
+      <input value={text} onChange={e => setText(e.target.value)} />
+      // 而不是更新结果列表(允许慢一些):
+      <SlowList text={deferredText} />
+    </>
+  );
+}
+
+// 总结：deferredText并不能使得SlowList重新呈现更快，只是告诉React，重新渲染列表
+// 可以被取消优先级，这样就不会阻塞键盘输入，React将尝试重新渲染，但不会阻止用户输入
+```
+
+## 3. 一句话总结用法
+
+>`useDeferredValue`用于延迟更新某个值的渲染，以改善页面性能。接收一个参数，返回一个要延迟的值，当这个延迟的值改变时，`React`会在空闲时间段更新它。
+
 ## [useEffect](https://react.dev/reference/react/useEffect)
 
 >在组件中执行副作用。（浏览器绘制屏幕之后）
@@ -532,7 +734,7 @@ useEffect(setup, dependencies)
 
 ### Caveats
 
-- 只能在组件的顶层作用域中调用，不能在循环，条件语句中。
+- 只能在组件的顶层作用域中或者自定义Hook中调用，不能在循环，条件语句中。
 - 如果不需要去执行一些副作用操作时，不要使用`Effect`。
 - 当严格模式中，`React`会额外调用一次setup和cleanup（副作用函数和清除副作用函数）在第一次调用setup前
 - 如果依赖项是定义在组件内部的对象或者函数时，可能会造成`Effect`频繁的执行，为了修复这个问题，可以移除非必要的对象或函数依赖。
@@ -812,6 +1014,148 @@ function MyComponent() {
 
 >`useEffect`用于在组件中执行副作用，它接收两个参数，一个是副作用函数，这个函数可以返回另一个清理函数（清除副作用产生的影响），`React`会在这个副作用函数重新执行前先执行这个清理函数；第二个参数是依赖项数组，当依赖性发生变化时，`React`会重新执行副作用函数，当依赖性数组为空时，副作用函数在整个组件生命周期中只执行一次，当没有传递依赖性数组时，每次组件重新渲染期间，`React`都会重新执行这个副作用函数。
 
+## [useId](https://react.dev/reference/react/useId)
+
+>可以生成一个唯一的ID。
+
+```ts
+const id = useId()
+```
+
+## 1. Reference
+
+### Parameters
+
+>`useId`不接收任何参数。
+
+### Returns
+
+>返回一个唯一的字符串ID。
+
+### Caveats
+
+- 只能在组件的顶层作用域中或者自定义Hook中调用，不能在循环或条件语句中。
+
+- 不应该被用于给列表生成`key`, `key`应该由数据生成。
+
+## 2. Usage
+
+### Generating unique IDs for accessibility attributes
+
+>一个组件可能会在页面上渲染多次，但是`ID`必须是唯一的，使用`useId`生成唯一的`ID`。
+
+```ts
+import { useId } from 'react';
+
+function PasswordField() {
+  const passwordHintId = useId();
+  return (
+    <>
+      <label>
+        密码:
+        <input
+          type="password"
+          // aria-describedby指定两个标签之间的关系
+          aria-describedby={passwordHintId}
+        />
+      </label>
+      <p id={passwordHintId}>
+        密码应该包含至少 18 个字符
+      </p>
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <>
+      <h2>输入密码</h2>
+      <PasswordField />
+      <h2>验证密码</h2>
+      <PasswordField />
+    </>
+  );
+}
+```
+
+### Generating IDs for several related elements
+
+>为多个相关元素生成`ID`，调用`useId`来为它们生成共同的前缀。
+
+```ts
+import { useId } from 'react';
+
+export default function Form() {
+  const id = useId();
+  return (
+    <form>
+      <label htmlFor={id + '-firstName'}>名字：</label>
+      <input id={id + '-firstName'} type="text" />
+      <hr />
+      <label htmlFor={id + '-lastName'}>姓氏：</label>
+      <input id={id + '-lastName'} type="text" />
+    </form>
+  );
+}
+```
+
+### Specifying a shared prefix for all generated IDs
+
+>如果在单个页面上渲染多个独立的`React`应用程序，在`createRoot`或`hydrateRoot`调用中将`identifierPrefix`作为选项传递, 确保了由两个不同应用程序生成的`ID`永远不会冲突，因为使用`useId`生成的每个`ID`都将以指定的不同前缀开头。
+
+```ts
+// index.js
+import { createRoot } from 'react-dom/client';
+import App from './App.js';
+import './styles.css';
+
+const root1 = createRoot(document.getElementById('root1'), {
+  identifierPrefix: 'my-first-app-'
+});
+root1.render(<App />);
+
+const root2 = createRoot(document.getElementById('root2'), {
+  identifierPrefix: 'my-second-app-'
+});
+root2.render(<App />);
+
+// App.js
+import { useId } from 'react';
+
+function PasswordField() {
+  const passwordHintId = useId();
+  console.log('生成的 ID：', passwordHintId)
+  return (
+    <>
+      <label>
+        密码:
+        <input
+          type="password"
+          aria-describedby={passwordHintId}
+        />
+      </label>
+      <p id={passwordHintId}>
+        密码应该包含至少 18 个字符
+      </p>
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <>
+      <h2>输入密码</h2>
+      <PasswordField />
+    </>
+  );
+}
+```
+
+## 3. 一句话总结用法
+
+>`useId`用于生成唯一的`ID`，不接收任何参数，返回生成的字符串`ID`，可以解决服务端渲染时和客户端生成的`ID`不匹配的问题。
+
+
 ## [useImperativeHandle](https://react.dev/reference/react/useImperativeHandle)
 
 >它可以自定义由`ref`暴露出来的内容。
@@ -1075,7 +1419,7 @@ const cachedValue = useMemo(calculateValue, dependencies)
 
 ### Caveats
 
-- 只能在组件的顶层作用域中调用，不能在循环和条件语句中调用
+- 只能在组件的顶层作用域中或者自定义Hook中调用，不能在循环和条件语句中调用
 - 严格模式中，`React`会调用计算函数两次，这是为了检查是不是纯函数，开发环境的行为
 
 ## 2. Usage
@@ -1303,7 +1647,7 @@ const [state, dispatch] = useReducer(reducer, initialArg, init?)
 
 ### Caveats
 
-- `useReducer`只能在组件的顶层作用域中使用，不能在循环或者条件语句中。
+- `useReducer`只能在组件的顶层作用域中或者自定义Hook中调用，不能在循环或者条件语句中。
 - 当严格模式下，`React`会调用`reducer`初始化两次，这是开发环境下的行为。
 
 ### dispatch function
@@ -2072,7 +2416,7 @@ function handleClick() {
 
 ## [useSyncExternalStore](https://react.dev/reference/react/useSyncExternalStore)
 
-todo
+>
 
 ## [useTransition](https://react.dev/reference/react/useTransition)
 

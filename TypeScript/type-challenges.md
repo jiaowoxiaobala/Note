@@ -1157,8 +1157,38 @@ type Unique<T, U extends unknown[] = []> = T extends [infer F, ...infer R]
 
 ### MapTypes
 
+>实现`MapTypes<T, R>`，它将对象`T`中的类型转换为类型`R`定义的不同类型。
+
 ```ts
-todo
+// ---------test case------------
+type test1 = MapTypes<{ stringToArray: string }, { mapFrom: string; mapTo: [] }>; // { stringToArray: [] }
+type test2 = MapTypes<{ date: string }, { mapFrom: string; mapTo: Date | null }>; // { date: null | Date }
+type test3 = MapTypes<{ name: string; date: Date }, { mapFrom: string; mapTo: boolean } | { mapFrom: Date; mapTo: string }>; // { name: boolean; date: string }
+
+// ------------code---------------
+
+// 思路：遍历T，判断T[K]是否满足mapForm，满足就转成mapTo
+type MapTypes<T extends Record<string, any>, R extends Record<'mapFrom' | 'mapTo', any>, U = R> = {
+  // 由于R有可能是联合类型，需要判断下
+  [K in keyof T]: R extends R ? T[K] extends R['mapFrom'] ? R['mapTo'] : [U] extends [R] ? T[K] : never : never
+}
+
+// 另一种解法
+type MapTypes<T, R extends { mapFrom: any; mapTo: any }> = {
+  [K in keyof T]: T[K] extends R['mapFrom']
+  // R extends { mapForm：T[K] }判断是不是联合类型
+  ? R extends { mapFrom: T[K] }
+    ? R['mapTo']
+    : never
+  : T[K]
+}
+
+// 另一种解法
+type MapTypes<T, R extends {mapFrom:any,mapTo:any}> = {
+  [key in keyof T]: [R extends { mapFrom: T[key] } ? R['mapTo'] : never] extends [never]
+    ? T[key]
+    : R extends { mapFrom: T[key] } ? R['mapTo'] : never
+}
 ```
 
 ### Construct Tuple
