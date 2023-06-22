@@ -1174,6 +1174,13 @@ type MapTypes<T extends Record<string, any>, R extends Record<'mapFrom' | 'mapTo
 }
 
 // 另一种解法
+type MapTypes<T, R extends { mapFrom: any, mapTo: any }> = {
+  [key in keyof T]: [R extends { mapFrom: T[key] } ? R['mapTo'] : never] extends [never]
+    ? T[key]
+    : R extends { mapFrom: T[key] } ? R['mapTo'] : never
+}
+
+// 另一种解法
 type MapTypes<T, R extends { mapFrom: any; mapTo: any }> = {
   [K in keyof T]: T[K] extends R['mapFrom']
   // R extends { mapForm：T[K] }判断是不是联合类型
@@ -1181,13 +1188,6 @@ type MapTypes<T, R extends { mapFrom: any; mapTo: any }> = {
     ? R['mapTo']
     : never
   : T[K]
-}
-
-// 另一种解法
-type MapTypes<T, R extends {mapFrom:any,mapTo:any}> = {
-  [key in keyof T]: [R extends { mapFrom: T[key] } ? R['mapTo'] : never] extends [never]
-    ? T[key]
-    : R extends { mapFrom: T[key] } ? R['mapTo'] : never
 }
 ```
 
@@ -1285,6 +1285,8 @@ type CheckRepeatedChars<T extends string> =
 
 
 ### FirstUniqueCharIndex
+
+>给定字符串`S`，查找其中第一个非重复字符并返回其索引。如果不存在，则返回-1。
 
 ```ts
 todo
@@ -1436,8 +1438,26 @@ type Filter<T extends unknown[], P> = T extends [infer F, ...infer R]
 
 ### Combination key type
 
+>把多个修饰键两两组合，但不可以出现相同的修饰键组合，提供的`ModifierKeys`中，前面的值比后面的值高，即`cmd ctrl`是可以的，但`ctrl cmd`是不允许的。
+
 ```ts
-todo
+// never会被联合类型过滤，所以U的默认值给到never
+type Combs<T extends string[], U = never> = T extends [
+  infer F extends string,
+  ...infer R extends string[]
+]
+  ? // 当遍历到最后一个元素时，R为空数组，空数组[number]为never
+    // 此时`${F} ${R[number]}`为`${最后一个元素类型} ${never}`，与never组成模板字符串类型时会返回never
+    Combs<R, U | `${F} ${R[number]}`>
+  : U;
+
+// 另一种解法：不声明临时类型变量
+type Combs<T extends string[]> = T extends [
+  infer F extends string,
+  ...infer R extends string[]
+]
+  ? `${F}${R[number]}` | Combs<R>
+  : never
 ```
 
 ### Replace First

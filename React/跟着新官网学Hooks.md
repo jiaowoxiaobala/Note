@@ -2420,4 +2420,67 @@ function handleClick() {
 
 ## [useTransition](https://react.dev/reference/react/useTransition)
 
-todo
+>在不阻塞UI的情况下更新状态。（状态更新分为紧急更新和过渡`transition`更新）
+
+```ts
+const [isPending, startTransition] = useTransition()
+```
+
+## 1. Reference
+
+### Parameters
+
+>`useTrasition`不需要任何参数。
+
+### Returns
+
+>返回一个由两个元素组件的数组。
+
+- `isPending`：是否存在`pending`的`transition`。
+
+- `startTransition function`：将状态更新标记为`transition`。
+
+### startTransition function
+
+>`useTransition`返回的`startTransition`函数允许将状态更新标记为`transition`状态。
+
+```ts
+function TabContainer() {
+  const [isPending, startTransition] = useTransition();
+  const [tab, setTab] = useState('about');
+
+  function selectTab(nextTab) {
+    startTransition(() => {
+      setTab(nextTab);
+    });
+  }
+  // ...
+}
+```
+
+#### Parameters
+
+- `scope`：一个调用一个或多个`set function`更新某些状态的函数。`React`会立即调用这个`scope`函数（不带任何参数），并将`scope`函数调用期间计划同步执行的所有状态更新标记为`transition`状态。
+
+#### Returns
+
+>`startTransition`没有返回值。
+
+#### Caveats
+
+- `useTransition`只能在组件内部或者自定义Hook内部调用，如果想在其他地方使用，独立调用`startTransition`函数。
+
+- 只有在可以访问该状态的`set function`时，才能将更新包装为`transition`状态。如果想要对某个prop或自定义Hook值标记为`transition`，使用`useDeferredValue`。
+
+- 传递给`startTransition`的函数必须是同步的，`React`会立即执行此函数，标记其执行期间发生的所有状态更新为`transtion`状态，异步的状态更新不会被标记为`transition`状态。
+
+- 标记为`transition`状态的状态更新将被其他状态更新打断。
+
+- `transition`状态更新不能用于控制文本输入。
+
+- 如果有多个正在进行的`transition`状态，`React`目前会将它们批量处理（未来可能会删除这个限制）
+
+
+## 2. Usage
+
+### Marking a state update as a non-blocking transition 
