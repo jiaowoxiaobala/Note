@@ -2416,7 +2416,220 @@ function handleClick() {
 
 ## [useSyncExternalStore](https://react.dev/reference/react/useSyncExternalStore)
 
->
+>用于订阅外部的数据（store。
+
+```ts
+const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot?)
+```
+
+## 1. Reference
+
+### Parameters
+
+- `subscribe`：接受单个回调函数并将其订阅到`store`的函数，当`store`改变时，这个回调函数应该执行，而且会导致组件重新渲染。`subscribe function`应该返回一个取消订阅的函数。
+
+- `getSnapshot`：从`store`中返回数据快照的函数，在`store`没有变化时，重复地调用`getSnapshot`应该返回相同的值，如果`store`改变了，返回的值是不同的，`React`将重新渲染组件。
+
+- `getServerSnapshot`：返回`store`中数据的初始快照的函数。仅仅在服务端渲染期间和在客户端上对服务器呈现的内容进行`hydration`期间使用，这个快照必须在服务端和客户端是相同的。并且通常被序列化，然后从服务器传递到客户端，如果没有传递这个参数，在服务端渲染组件会报错。
+
+
+### Returns
+
+>返回读取到的数据快照。
+
+### Caveats
+
+- 通过`getSnapshot`返回的数据快照必须是不可变的，如果`store`有可更改的数据，则在数据发生变化时返回一个新的不可变快照，否则返回上次存储的快照。
+
+- 如果一个不同的`subscribe function`在重新渲染期间被传递了，`React`将重新订阅这个`store`使用新传递的`subscribe function`，可以通过在组件外部声明订阅来防止这种情况。
+
+## 2. Usage
+
+### Subscribing to an external store 
+
+>大多数`React`组件仅仅只是从它们的`props、state、context`读取数据，有些时候组件可能需要从`React`之外的存储中读取一些随时变化的数据。
+
+```ts
+// This is an example of a third-party store
+// that you might need to integrate with React.
+
+// If your app is fully built with React,
+// we recommend using React state instead.
+// todoStore.js
+let nextId = 0;
+let todos = [{ id: nextId++, text: 'Todo #1' }];
+let listeners = [];
+
+export const todosStore = {
+  addTodo() {
+    todos = [...todos, { id: nextId++, text: 'Todo #' + nextId }]
+    emitChange();
+  },
+  subscribe(listener) {
+    listeners = [...listeners, listener];
+    return () => {
+      listeners = listeners.filter(l => l !== listener);
+    };
+  },
+  getSnapshot() {
+    return todos;
+  }
+};
+
+function emitChange() {
+  for (let listener of listeners) {
+    listener();
+  }
+}
+
+// App.js
+import { useSyncExternalStore } from 'react';
+import { todosStore } from './todoStore.js';
+
+export default function TodosApp() {
+  const todos = useSyncExternalStore(todosStore.subscribe, todosStore.getSnapshot);
+  return (
+    <>
+      <button onClick={() => todosStore.addTodo()}>Add todo</button>
+      <hr />
+      <ul>
+        {todos.map(todo => (
+          <li key={todo.id}>{todo.text}</li>
+        ))}
+      </ul>
+    </>
+  );
+}
+```
+
+###  Subscribing to a browser API 
+
+>另一个使用`useSyncExternalStore`的场景是订阅通过浏览器暴露出来的一些随时可能改变的数据。
+
+```ts
+import { useSyncExternalStore } from 'react';
+
+function getSnapshot() {
+  return navigator.onLine;
+}
+
+function subscribe(callback) {
+  window.addEventListener('online', callback);
+  window.addEventListener('offline', callback);
+  return () => {
+    window.removeEventListener('online', callback);
+    window.removeEventListener('offline', callback);
+  };
+}
+
+export default function ChatIndicator() {
+  const isOnline = useSyncExternalStore(subscribe, getSnapshot);
+  return <h1>{isOnline ? 'Online' : 'Disconnected'}</h1>;
+}
+```
+
+### Extracting the logic to a custom Hook
+
+>将逻辑提取到自定义Hook中，这可以在不同组件使用相同的外部`store`。
+
+```ts
+import { useSyncExternalStore } from 'react';
+
+export function useOnlineStatus() {
+  const isOnline = useSyncExternalStore(subscribe, getSnapshot);
+  return isOnline;
+}
+
+function getSnapshot() {
+  // ...
+}
+
+function subscribe(callback) {
+  // ...
+}
+```
+
+### Adding support for server rendering
+
+>如果使用服务端渲染，你的`React`组件也因此会运行在浏览器环境之外去生成初始`HTML`，这在创建连接外部`store`时有一些改变：
+
+- 无法去连接浏览器API，因为它们不存在服务端上。
+
+- 如果去连接第三方库，需要它们的数据在服务端和客户端匹配。
+
+```ts
+// 为了解决上面的问题，可以使用第三个参数
+import { useSyncExternalStore } from 'react';
+
+export function useOnlineStatus() {
+  const isOnline = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  return isOnline;
+}
+
+function getSnapshot() {
+  return navigator.onLine;
+}
+
+// 和getSnapshot相似，不过它仅仅运行在服务端生成HTML或客户端hydration时
+function getServerSnapshot() {
+  return true; // Always show "Online" for server-generated HTML
+}
+
+function subscribe(callback) {
+  // ...
+}
+```
+
+## 3. Troubleshooting
+
+### I’m getting an error: “The result of getSnapshot should be cached” 
+
+>每次调用`getSnapshot`都返回了一个新的对象。
+
+### My subscribe function gets called after every re-render 
+
+
+>`subscribe function`被定义在了组件内部，并且每次渲染都是不同的。
+
+```ts
+function ChatIndicator() {
+  const isOnline = useSyncExternalStore(subscribe, getSnapshot);
+  
+  // Always a different function, so React will resubscribe on every re-render
+  function subscribe() {
+    // ...
+  }
+
+  // ...
+}
+
+// fix
+function ChatIndicator() {
+  const isOnline = useSyncExternalStore(subscribe, getSnapshot);
+  // ...
+}
+
+// Always the same function, so React won't need to resubscribe
+function subscribe() {
+  // ...
+}
+
+function ChatIndicator({ userId }) {
+  const isOnline = useSyncExternalStore(subscribe, getSnapshot);
+  
+  // Same function as long as userId doesn't change
+  const subscribe = useCallback(() => {
+    // ...
+  }, [userId]);
+
+  // ...
+}
+```
+
+## 4.一句话总结用法
+
+>`useSyncExternalStore`用于在组件中订阅外部的数据。接收三个参数，第一个是用于订阅`store`的`subscribe`函数，并且返回一个取消订阅的函数，第二个是`getSnapshot`函数，可以从`store`中读取数据快照，第三个参数在服务端渲染时使用，返回`store`数据的初始快照。`useSyncExternalStore`的返回值是`store`数据的快照。
+
 
 ## [useTransition](https://react.dev/reference/react/useTransition)
 
@@ -2434,7 +2647,7 @@ const [isPending, startTransition] = useTransition()
 
 ### Returns
 
->返回一个由两个元素组件的数组。
+>返回一个由两个元素组成的数组。
 
 - `isPending`：是否存在`pending`的`transition`。
 
@@ -2483,4 +2696,166 @@ function TabContainer() {
 
 ## 2. Usage
 
-### Marking a state update as a non-blocking transition 
+### Marking a state update as a non-blocking transition
+
+>在组件顶层作用域调用`useTransition`，将状态更新标记为非阻塞的`transition`状态。
+
+- [例子](https://codesandbox.io/s/mffivk?file=%2FApp.js&utm_medium=sandpack)
+
+### Updating the parent component in a transition 
+
+>也可以通过`useTransition`调用来更新父组件的状态。
+
+```ts
+import { useTransition } from 'react';
+
+// 选项卡按钮
+export default function TabButton({ children, isActive, onClick }) {
+  const [isPending, startTransition] = useTransition();
+  if (isActive) {
+    return <b>{children}</b>
+  }
+  return (
+    // 点击后通过onClick prop更新父组件的状体
+    <button onClick={() => {
+      startTransition(() => {
+        onClick();
+      });
+    }}>
+      {children}
+    </button>
+  );
+}
+```
+
+### Displaying a pending visual state during the transition 
+
+>可以使用`useTransition`返回的`isPending`来向告知用户`transition`正在进行中。例如，选项卡按钮可以有个特殊视觉效果。
+
+```ts
+function TabButton({ children, isActive, onClick }) {
+  const [isPending, startTransition] = useTransition();
+  // ...
+  if (isPending) {
+    return <b className="pending">{children}</b>;
+  }
+  // ...
+```
+
+### Preventing unwanted loading indicators 
+
+- 略，和上面例子相似。
+
+### Building a Suspense-enabled router 
+
+>如果你正在构建一个`React`框架或路由，建议将页面导航标记为`transition`效果。
+
+- `transition`效果是可中断的，用户在等待重新渲染完成之前点击其他地方。
+
+- `transition`效果可以防止不必要的加载指示，避免用户在导航时产生不协调的跳转。
+
+- [例子](https://codesandbox.io/s/exderr?file=/App.js&utm_medium=sandpack)
+
+## 3. Troubleshooting 
+
+### Updating an input in a transition doesn’t work
+
+>不能使用`transition`来控制输入的状态变量，因为`transition`是非阻塞的，但是响应更改事件时更新输入应该是同步的。
+
+如果想要在输入时运行一个`transition`：
+
+- 可以声明两个分开的状态变量，一个用于输入状态（同步更新），另一个用于在`transition`中更新的状态变量（传递给其他渲染逻辑
+
+- 用`useDeferredValue`包裹这个状态变量，它会自动触发非阻塞的重新渲染。
+
+
+```ts
+const [text, setText] = useState('');
+// ...
+function handleChange(e) {
+  // Can't use transitions for controlled input state
+  startTransition(() => {
+    setText(e.target.value);
+  });
+}
+// ...
+return <input value={text} onChange={handleChange} />;
+```
+
+### React doesn’t treat my state update as a transition 
+
+>在`transition`中包装一个状态更新时，需要确保发生在`startTransition`调用阶段。
+
+```ts
+// bad
+// 传递给startTransition的函数必须是同步的
+startTransition(() => {
+  // etting state *after* startTransition call
+  setTimeout(() => {
+    setPage('/about');
+  }, 1000);
+});
+
+// fix
+setTimeout(() => {
+  startTransition(() => {
+    // Setting state *during* startTransition call
+    setPage('/about');
+  });
+}, 1000);
+
+// bad
+startTransition(async () => {
+  await someAsyncFunction();
+  // Setting state *after* startTransition call
+  setPage('/about');
+});
+
+// fix
+await someAsyncFunction();
+startTransition(() => {
+  // Setting state *during* startTransition call
+  setPage('/about');
+});
+```
+
+### I want to call useTransition from outside a component 
+
+>不能在组件外部调用`useTransition`，在这种情况下，应该改用独立的`startTransition`方法。
+
+### The function I pass to startTransition executes immediately
+
+>传递给`startTransition`的函数不会被延迟执行，`React`会立即执行函数，但是在它运行期间所有安排的状态更新都会被标记为`transition`状态。
+
+```ts
+// 这段代码会立即打印1，2，3
+console.log(1);
+startTransition(() => {
+  console.log(2);
+  setPage('/about');
+});
+console.log(3);
+
+
+// A simplified version of how React works
+
+let isInsideTransition = false;
+
+function startTransition(scope) {
+  isInsideTransition = true;
+  scope();
+  isInsideTransition = false;
+}
+
+function setState() {
+  if (isInsideTransition) {
+    // ... schedule a transition state update ...
+  } else {
+    // ... schedule an urgent state update ...
+  }
+}
+```
+
+## 4. 一句话总结用法
+
+>`useTransition`用于在不阻塞`UI`的情况下进行状态更新，且是可中断的。不接收任何参数，返回一个由两个元素组成的数组，第一个是`isPending`（是否有挂起的`transition`状态），第二个是`startTransition`函数，`React`会立即调用传入`startTransition`的函数，并把该函数中所有同步执行的状态更新标记为`transition`状态。
