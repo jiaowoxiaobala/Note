@@ -1289,7 +1289,30 @@ type CheckRepeatedChars<T extends string> =
 >给定字符串`S`，查找其中第一个非重复字符并返回其索引。如果不存在，则返回-1。
 
 ```ts
-todo
+// 思路：定义一个数组类型U，既可以存储不满足条件的成员，又可以当成满足条件成员的索引
+type FirstUniqueCharIndex<
+  T extends string,
+  U extends string[] = []
+> = T extends `${infer F}${infer R}`
+  // 判断F 在不在 U中存在相同的
+  ? F extends U[number]
+    // 如果在就把F添加进去，此时也相当于索引+1了
+    ? FirstUniqueCharIndex<R, [...U, F]>
+    // 如果不在，继续判断F在不在R中存在
+    : R extends `${string}${F}${string}`
+      ? FirstUniqueCharIndex<R, [...U, F]>
+      // 双重判断后都不在，就可以返回索引了
+      : U['length']
+  : -1
+
+
+// 另一种思路：定义一个字符串类型N（用于判断是否有两个重复子字符），数组类型R（用于索引计数）
+type FirstUniqueCharIndex<T extends string, N extends string = T, R extends unknown[] = []> = N extends `${infer F}${infer S}`
+  // 判断是否存在两个相同的F
+  ? T extends `${string}${F}${string}${F}${string}`
+    ? FirstUniqueCharIndex<T, S, [...R, unknown]>
+    : R['length']
+  : -1
 ```
 
 ### GetMiddleElement
