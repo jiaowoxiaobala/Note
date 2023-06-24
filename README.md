@@ -1,6 +1,6 @@
 # blog
 
-A note-store
+A note-store，record and review knowledge。
 
 
 1. <a href='./TypeScript/README.md'>TypeScript系列</a>

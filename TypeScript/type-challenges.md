@@ -1126,7 +1126,12 @@ type Join<T extends any[], U extends string | number> = T extends [
 >实现类型版本的`Array.lastIndexOf`, `LastIndexOf<T, U>`接受数组`T`, `any`类型`U`, 如果`U`存在于`T`中, 返回`U`在数组`T`中最后一个位置的索引, 不存在则返回`-1`。
 
 ```ts
-todo
+// 思路：遍历数组，每次去除最后一个成员比较，定义前面的所有成员为R，匹配到后直接返回R的长度
+type LastIndexOf<T extends unknown[], U> = T extends [...infer R, infer L]
+  ? Equal<U, L> extends true
+    ? R['length']
+    : LastIndexOf<R, U>
+  : -1
 ```
 
 ### Unique
