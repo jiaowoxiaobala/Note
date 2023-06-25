@@ -1,5 +1,3 @@
-# blog
-
 A note-store，record and review knowledge。
 
 

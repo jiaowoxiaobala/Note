@@ -861,6 +861,8 @@ type BEM<
 
 ### InorderTraversal
 
+>实现顺序遍历二叉树的类型版本。
+
 ```ts
 todo
 ```
@@ -877,8 +879,22 @@ type Flip<T extends Record<string, string | number | boolean>> = {
 
 ### Fibonacci Sequence
 
+>实现类型版本的斐波那契数列。
+
 ```ts
-todo
+// 按照斐波那契数列的规律：1 1 2 3 5 8 13 21...得出 f(n)=f(n-2)+f(n-1)
+type Fibonacci<
+  T extends number,
+  // 当前是第几位
+  CurrentIndex extends 1[] = [1],
+  // 前一位的结果
+  Prev extends 1[] = [],
+  // 当前位的结果
+  Current extends 1[] = [1]
+> = CurrentIndex["length"] extends T
+  ? Current["length"]
+  // 每次递归一次，当前位数+1
+  : Fibonacci<T, [...CurrentIndex, 1], Current, [...Prev, ...Current]>;
 ```
 
 ### AllCombinations
@@ -1072,8 +1088,32 @@ type Without<T, U> = T extends [infer R, ...infer F]
 
 ### Trunc
 
+>实现`Math.trunc`的类型版本，接收字符串或数字取整。
+
 ```ts
-todo
+// ---------test case------------
+type test1 = Trunc<0.1>; // "0"
+type test2 = Trunc<1.234>; // "1"
+type test3 = Trunc<".3">; // "0"
+type test4 = Trunc<"-10.234">; // "-10"
+type test5 = Trunc<10>; // "10"
+
+
+// ------------code---------------
+// 先判断是否匹配以0. | .开头
+type Trunc<T extends string | number> = `${T}` extends `${"0." | "."}${string}`
+  ? "0"
+  // 匹配出整数部分I
+  : `${T}` extends `${infer I}.${string}`
+    ? I
+    : `${T}`;
+
+// 另一种解法：以小数点为划分匹配前后字符
+type Trunc<S extends string | number> = `${S}` extends `${infer R}.${infer U}`
+  ? R extends ''
+    ? '0'
+    : R
+  : `${S}`
 ```
 
 
@@ -1268,8 +1308,31 @@ type Combs<T extends string[]> = T extends [
 
 ### Subsequence
 
+>给定一个唯一元素的数组，返回所有可能的子序列。
+
 ```ts
-todo
+// ---------test case------------
+type test1 = Subsequence<[1, 2]>; // [] | [1] | [2] | [1, 2]
+type test2 = Subsequence<[1, 2, 3]>; // [] | [1] | [2] | [1, 2] | [3] | [1, 3] | [2, 3] | [1, 2, 3]
+
+
+// ------------code---------------
+// 假设T = [1, 2, 3]
+// [1, ...Subsequence<[2, 3]>] | Subsequence<[2, 3]>
+
+// 分解[1, ...Subsequence<[2, 3]>]
+// [1, ...[2, ...Subsequence<3>]] | [1, ...Subsequence<3>]
+// [1, 2, 3] | [1, 2] | [1, 3] | [1]
+
+// 分解Subsequence<[2, 3]>
+// [2, ...Subsequence<3>] | Subsequence<3>
+// [2, ...[3]] | [2, ...[]] | [3, ...[]]
+// [2, 3] | [2] | [3]
+
+// 最后T遍历完时(即T为空数组），返回[]
+type Subsequence<T extends any[]> = T extends [infer F, ...infer R]
+  ? [F, ...Subsequence<R>] | Subsequence<R>
+  : T;
 ```
 
 
@@ -1560,8 +1623,57 @@ type Transpose<M extends number[][],R = M['length'] extends 0?[]:M[0]> = {
 
 ### JSON Schema to TypeScript
 
+>实现泛型`JSONSchema2TS`，它将返回与给定`JSON`模式对应的`TypeScript`类型。
+
 ```ts
-todo
+type Primitives = {
+  string: string;
+  number: number;
+  boolean: boolean;
+};
+
+// 处理基础类型
+type HandlePrimitives<T, Type extends keyof Primitives> = T extends {
+  enum: unknown[];
+}
+  ? T["enum"][number]
+  : Primitives[Type];
+
+// 处理对象
+type HandleObject<T> = T extends {
+  properties: infer P;
+}
+  ? T extends { required: infer R extends unknown[] }
+    // 有required字段，就取出required中的key改为必选
+
+    // 这里Omit的作用是
+    // { name: string } & { age?: number } extends { name: string; age?: number } -> false
+    // Omit<{ name: string } & { age?: number }, never> extends { name: string; age?: number } -> true
+    ? Omit<
+        {
+          [K in R[number] & keyof P]: JSONSchema2TS<P[K]>;
+        } & {
+          [K in keyof P]?: JSONSchema2TS<P[K]>;
+        },
+        never
+      >
+    : {
+        [K in keyof P]?: JSONSchema2TS<P[K]>;
+      }
+  : Record<string, unknown>;
+
+// 处理数组
+type HandleArray<T> = T extends { items: infer I }
+  ? JSONSchema2TS<I>[]
+  : unknown[];
+
+type JSONSchema2TS<T> = T extends { type: infer Type }
+  ? Type extends keyof Primitives
+    ? HandlePrimitives<T, Type>
+    : Type extends "object"
+    ? HandleObject<T>
+    : HandleArray<T>
+  : never;
 ```
 
 ### Square
