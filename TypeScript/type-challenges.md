@@ -864,7 +864,17 @@ type BEM<
 >实现顺序遍历二叉树的类型版本。
 
 ```ts
-todo
+// 中序遍历首先遍历左子树，然后访问根结点，最后遍历右子树。
+interface TreeNode {
+  val: number;
+  left: TreeNode | null;
+  right: TreeNode | null;
+}
+// [T] extends [TreeNode]避免触发分布式条件类型
+type InorderTraversal<T extends TreeNode | null> = [T] extends [TreeNode]
+  ? [...InorderTraversal<T["left"]>, T["val"], ...InorderTraversal<T["right"]>]
+  // T为null时返回[]
+  : [];
 ```
 
 ### Flip
@@ -1814,5 +1824,174 @@ type CheckRepeatedTuple<T extends unknown[]> = T extends [infer L, ...infer R]
     : CheckRepeatedTuple<R>
   : false;
 ```
+
+## hard
+
+### Simple Vue
+
+```ts
+todo
+```
+
+### Currying
+
+>柯里化 是一种将带有多个参数的函数转换为每个带有一个参数的函数序列的技术。
+
+```ts
+// 思路：遍历函数参数T，每次创建一个函数并返回一个函数
+type Curry<T, R> = T extends [infer F, ...infer Rest]
+  ? (k: F) => Curry<Rest, R>
+  : R;
+
+declare function Currying<Fn>(
+  fn: Fn
+): Fn extends (...args: infer Rest) => infer R
+  ? Rest extends []
+    ? Fn
+    : Curry<Rest, R>
+  : never;
+
+// 另一种解法
+type Curry<Fn> = Fn extends (...args: infer Args) => infer R
+  ? Args extends [infer F, ...infer Rest]
+    ? (k: F) => Curry<(...args: Rest) => R>
+    : R
+  : never;
+
+declare function Currying<Fn>(fn: Fn): Curry<Fn>;
+```
+
+### Union to Intersection
+
+>把联合类型转成交叉类型。
+
+```ts
+// 利用了函数的参数具有逆变的特点
+// 同一类型变量在逆变位置上的多个候选变量会导致推断出交集类型
+type UnionToIntersection<U> = (U extends U ? (a: U) => any : U) extends (a: infer R) => any
+  ? R
+  : never;
+
+// 利用逆变的另一个例子
+type Bar<T> = T extends { a: (x: infer U) => void; b: (x: infer U) => void }
+  ? U
+  : never;
+type T = Bar<{ a: (x: string) => void; b: (x: number) => void }>; // string & number
+
+// 协变的一个例子:
+// 同一类型变量在协变位置上的多个候选变量会导致推断出联合类型
+type Foo<T> = T extends { a: infer U; b: infer U } ? U : never;
+type T2 = Foo<{ a: string; b: number }>; // string | number
+```
+
+### Get Required
+
+>实现高级工具类型`GetRequired<T>`，该类型保留所有必需的属性
+
+```ts
+// ---------test case------------
+type test = GetRequired<{ foo: number; bar?: string }>; // { foo: number }>>,
+type test2 = GetRequired<{ foo: undefined; bar?: undefined }>; // { foo: undefined }>
+
+// ------------code---------------
+// 思路：把T用Required包装后取对应的K，判读属性是否是必需
+type GetRequired<T extends object> = {
+  [K in keyof T as T[K] extends Required<T>[K] ? K : never]: T[K];
+};
+
+// 另一种写法：通过-?判断
+type GetRequired<T extends object> = {
+  // 如果K是可选，-?后就是必需
+  [K in keyof T as { [P in K]: T[P] } extends { [P in K]-?: T[P] }
+    ? K
+    : never]: T[K];
+};
+```
+
+
+### Get Optional
+
+>实现高级工具类型`GetOptional<T>`，该类型保留所有可选属性
+
+
+```ts
+// ---------test case------------
+type test1 = GetOptional<{ foo: number; bar?: string }>; // { bar?: string }
+type test2 = GetOptional<{ foo: undefined; bar?: undefined }>; // { bar?: undefined }
+
+// ------------code---------------
+// 思路：把T用Required包装后取对应的K，判读属性是否是必需
+type GetOptional<T extends object> = {
+  [K in keyof T as T[K] extends Required<T>[K] ? never : K]: T[K];
+};
+
+// 另一种写法：通过-?判断
+type GetRequired<T extends object> = {
+  // 如果K是可选，-?后就是必需
+  [K in keyof T as { [P in K]: T[P] } extends { [P in K]-?: T[P] }
+    ? never
+    : K]: T[K];
+};
+```
+
+### Required Keys
+
+>实现高级工具类型`RequiredKeys<T>`，该类型返回`T`中所有必需属性的键组成的一个联合类型。
+
+```ts
+type RequiredKeys<T extends object> = keyof {
+  // 取出所有必需属性的建
+  [K in keyof T as T[K] extends Required<T>[K] ? K : never]: T[K];
+};
+```
+
+### Optional Keys
+
+>实现高级工具类型`OptionalKeys<T>`，该类型将`T`中所有可选属性的键合并为一个联合类型。
+
+```ts
+type OptionalKeys<T extends object> = keyof {
+  // 取出所有可选属性的建
+  [K in keyof T as T[K] extends Required<T>[K] ? never : K]: T[K];
+};
+```
+
+### Capitalize Words
+
+>实现`CapitalizeWords<T>`，它将字符串的每个单词的第一个字母转换为大写，其余部分保持原样。
+
+```ts
+// 通过Uppercase<S> extends Lowercase<S>判断是否是字母
+type CapitalizeWords<
+  S extends string,
+  W extends string = ""
+> = S extends `${infer F}${infer R}`
+  ? CapitalizeWords<
+      // 如果F非字母，则把R的首字符转为大写（这里就算R的首字符不是字母也不影响）
+      Uppercase<F> extends Lowercase<F> ? Capitalize<R> : R,
+      // 拼接到W上
+      `${W}${F}`
+    >
+
+  // 遍历完后把W的首字符转为大写（在找到第一个非字母时，都是小写，因此需要转一次）
+  : Capitalize<W>;
+
+
+// 另一种解法，对长字符串不适应（递归层级过深），仅扩展思路
+type CapitalizeRest<S extends string> = S extends `${infer F}${infer R}`
+  ? `${F}${CapitalizeRest<
+      Uppercase<F> extends Lowercase<F> ? Capitalize<R> : R
+    >}`
+  : S;
+
+type CapitalizeWords<S extends string> = Capitalize<CapitalizeRest<S>>;
+```
+
+
+
+
+
+
+
 
 未完待续...
