@@ -1260,7 +1260,7 @@ const CommentList = forwardRef(function CommentList(props, ref) {
 
 ## 3. 一句话总结用法
 
->`useImperativeHandle`用于通过`ref`暴露自定义的内容，接收三个参数，第一个参数是`forwardRef`中的第二参数，第二个是函数`createHandle`，该函数返回的对象就是暴露出去的内容，第三个参数是一个依赖项数组，控制`createHandle`是否重新执行。
+>`useImperativeHandle`用于通过`ref`暴露自定义的内容，接收三个参数，第一个参数是`forwardRef`中的第二参数`ref`，第二个是函数`createHandle`，该函数返回的对象就是暴露出去的内容，第三个参数是一个依赖项数组，控制`createHandle`是否重新执行。
 
 ## [useInsertionEffect](https://react.dev/reference/react/useInsertionEffect)
 
