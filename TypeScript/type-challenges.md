@@ -7,7 +7,7 @@
 >从类型`T`中选出符合`K`的属性，构造一个新的类型。
 
 ```ts
-// K extends keyof T泛型约束
+// K extends keyof T泛型约束：K是T的键
 type MyPick<T, K extends keyof T> = {
   [k in K]: T[k]
 }
@@ -19,8 +19,8 @@ type MyPick<T, K extends keyof T> = {
 
 ```ts
 type MyReadonly<T> = {
-  // keyof T取T的所有键值，返回一个组成的联合类型
-  // in取联合类型的每一个值
+  // keyof T：取T的所有键，返回一个联合类型
+  // in取联合类型的每一项
   readonly [K in keyof T]: T[K]
 }
 ```
@@ -31,7 +31,7 @@ type MyReadonly<T> = {
 
 ```typescript
 // 元组[number]相当于遍历元组的每一项，组成一个联合类型
-type TupleToObject<T extends readonly (string|number)[]> = {
+type TupleToObject<T extends readonly (string | number)[]> = {
   [K in T[number]]: K
 }
 ```
@@ -553,6 +553,7 @@ type AnyOf<T extends any[]> = T[number] extends
 >判断给定的类型是否是`never`。
 
 ```typescript
+// 如果条件类型左边是类型参数，并且传入的是 never，那么直接返回 never，因此需要[]包裹
 type IsNever<T> = [T] extends [never] ? true : false;
 ```
 
@@ -709,6 +710,7 @@ type Copy<T> = {
   [K in keyof T]: T[K];
 };
 
+// -?表示去掉可选属性修饰符?
 type RequiredByKeys<T, K extends keyof T = keyof T> = Copy<
   Omit<T, K> & {
     [P in K]-?: T[P];
@@ -720,6 +722,7 @@ type RequiredByKeys<T, K extends keyof T = keyof T> = Copy<
 >实现一个通用的类型`Mutable<T>`，使类型`T`的全部属性可变（非只读）。
 
 ```typescript
+// -readonly表示去掉只读修饰符readonly
 type Mutable<T> = {
   -readonly [K in keyof T]:T[K]
 }
@@ -739,7 +742,6 @@ type OmitByType<T, U> = {
 
 ```typescript
 // 思路：将对象转为联合类型 -> T[keyof T] / keyof T
-
 type ObjectEntries<T> = {
   [K in keyof T]-?: [K, T[K]];
 }[keyof T];
@@ -757,7 +759,8 @@ type Shift<T extends unknown[]> = T extends [infer First, ...infer Rest] ? Rest:
 
 ```typescript
 type TupleToNestedObject<T, U> = T extends [infer F, ...infer Rest]
-  ? {
+  ? { 
+      // 约束F为string类型
       [K in F & string]: TupleToNestedObject<Rest, U>;
     }
   : U;
@@ -849,7 +852,7 @@ type BEM<
   ? ""
   : M[number]}`;
 
-
+// 另一种解法
 type BEM<
   B extends string,
   E extends string[],
@@ -1986,6 +1989,346 @@ type CapitalizeRest<S extends string> = S extends `${infer F}${infer R}`
 
 type CapitalizeWords<S extends string> = Capitalize<CapitalizeRest<S>>;
 ```
+
+### CamelCase
+
+>实现`CamelCase<T>`，将`snake_case`类型的表示的字符串转换为`camelCase`的表示方式。
+
+```ts
+// ---------test case------------
+type test1 = CamelCase<"foobar">; // 'foobar'
+type test2 = CamelCase<"FOOBAR">; // 'foobar'
+type test3 = CamelCase<"foo_bar">; // 'fooBar'
+type test4 = CamelCase<"foo__bar">; // 'foo_Bar'
+type test5 = CamelCase<"foo_$bar">; // 'foo_$bar'
+type test6 = CamelCase<"foo_bar_">; // 'fooBar_'
+type test7 = CamelCase<"foo_bar__">; // 'fooBar__'
+type test8 = CamelCase<"foo_bar_$">; // 'fooBar_$'
+type test9 = CamelCase<"foo_bar_hello_world">; // 'fooBarHelloWorld'>>,
+type test10 = CamelCase<"HELLO_WORLD_WITH_TYPES">; // 'helloWorldWithTypes'>>,
+type test11 = CamelCase<"-">; // '-'
+type test12 = CamelCase<"">; // ''
+type test13 = CamelCase<"😎">; // '😎'
+
+
+// ------------code---------------
+// 思路：以_做分割匹配三个部分，_前面的所有字符L，_后面的第一个字符F，F后面的所有字符R
+type CamelCase<S extends string> = S extends `${infer L}_${infer F}${infer R}`  
+  ? Uppercase<F> extends Lowercase<F>
+    // 如果F是非字母，保留_，把F+R继续递归
+    ? `${Lowercase<L>}_${CamelCase<`${F}${R}`>}`
+    // F是字母就转成大写，去掉_，然后继续递归R
+    : `${Lowercase<L>}${Capitalize<F>}${CamelCase<R>}`
+  : Lowercase<S>;
+```
+
+
+### C-printf Parser
+
+>这个挑战要求您解析输入字符串并提取格式占位符，如`%d`和`%f`。例如，如果输入字符串是`" the result is %d."`，那么解析的结果是一个元组`['dec']`。
+
+```ts
+// ---------test case------------
+type test1 = ParsePrintFormat<"">; // []>>
+type test2 = ParsePrintFormat<"Any string.">; // []>>
+type test3 = ParsePrintFormat<"The result is %d.">; // ['dec']>>
+type test4 = ParsePrintFormat<"The result is %%d.">; // []>>
+type test5 = ParsePrintFormat<"The result is %%%d.">; // ['dec']>>
+type test6 = ParsePrintFormat<"The result is %f.">; // ['float']>>
+type test7 = ParsePrintFormat<"The result is %h.">; // ['hex']>>
+type test8 = ParsePrintFormat<"The result is %q.">; // []>>
+type test9 = ParsePrintFormat<"Hello %s: score is %d.">; // ['string', 'dec']>>
+type test10 = ParsePrintFormat<"The result is %">; // []>>
+
+
+// ------------code---------------
+type ControlsMap = {
+  c: "char";
+  s: "string";
+  d: "dec";
+  o: "oct";
+  h: "hex";
+  f: "float";
+  p: "pointer";
+};
+
+// 匹配%后面的第一个字符在不在ControlsMap的key中
+type ParsePrintFormat<S extends string> =
+  // 每次把%前面的字符舍弃
+  S extends `${infer L}%${infer F}${infer R}`
+    ? F extends keyof ControlsMap
+      // 如果在，就把读取的value添加进数组，然后继续递归
+      ? [ControlsMap[F], ...ParsePrintFormat<R>]
+      : ParsePrintFormat<R>
+    : [];
+```
+
+### Vue Basic Props
+
+```ts
+todo
+```
+
+### IsAny
+
+>实现`IsAny<T>`，它接受输入类型`T`。如果`T`是`any`，则返回`true`，否则返回`false`。
+
+```ts
+// any 类型与任何类型的交叉都是 any，也就是 1 & any 结果是 any
+type IsAny<T> = 0 extends 1 & T ? true : false;
+
+// 需要注意上面这个条件类型的左边和右边在去除T后不能成立
+// 如果成立的话
+type IsAny<T> = 0 extends 0 & T ? true : false
+
+// 0 extends 0 & unknown -> 0 extends 0
+type test = IsAny<unknown> // true
+```
+
+### Get
+
+>`lodash`中的`get`函数用于访问`JavaScript`中嵌套值，实现一个类型版本。
+
+```ts
+// ---------test case------------
+type Data = {
+  foo: {
+    bar: {
+      value: "foobar";
+      count: 6;
+    };
+    included: true;
+  };
+  "foo.baz": false;
+  hello: "world";
+};
+
+type test1 = Get<Data, "hello">; // 'world'
+type test2 = Get<Data, "foo.bar.count">; // 6
+type test3 = Get<Data, "foo.bar">; // { value: 'foobar'; count: 6 }
+type test4 = Get<Data, "foo.baz">; // false
+type test5 = Get<Data, "no.existed">; // never
+
+
+// ------------code---------------
+// 递归出口 K extends keyof T -> T[K]
+type Get<T, K> = K extends keyof T
+  ? T[K]
+  // 匹配出.号前面的key，和.号后面的所有字符
+  : K extends `${infer L}.${infer R}`
+  // L在T的key中
+  ? L extends keyof T
+    // 继续递归
+    ? Get<T[L], R>
+    : never
+  : never;
+
+
+// 另一种思路：直接先匹配.号前后字符
+type Get<T, K> = K extends `${infer A}.${infer B}`
+  // 前面的A在T的key中
+  ? A extends keyof T
+    // 递归
+    ? Get<T[A], B>
+    : never
+  // K匹配不上`${infer A}.${infer B}`时，再判断K是否在T的key中
+  : K extends keyof T
+    ? T[K]
+    : never;
+```
+
+
+### String to Number
+
+>将字符串文字转换为数字，其行为类似于`number.parseint`。
+
+```ts
+// ---------test case------------
+type test1 = ToNumber<"0">; // 0
+type test2 = ToNumber<"5">; // 5
+type test3 = ToNumber<"12">; // 12
+type test4 = ToNumber<"27">; // 27
+type test5 = ToNumber<"18@7_$%">; // never
+
+// ------------code---------------
+// 思路：通过构建长度相等的数组，不适应大数值和非纯数值
+type ToNumber<S extends string, N extends 1[] = []> = S extends `${N["length"]}`
+  ? N["length"]
+  : ToNumber<S, [...N, 1]>;
+
+// 另一种思路：infer 的时候加上 extends 来约束推导的类型为number类型
+type ToNumber<S extends string> = S extends `${infer N extends number}`
+  ? N
+  : never;
+```
+
+### Tuple Filter
+
+>实现类型`FilterOut<T, F>`，从元组`T`中过滤出给定类型`F`的项。
+
+```ts
+// ---------test case------------
+type test1 = FilterOut<[], never>; // []
+type test2 = FilterOut<[never], never>; // []
+type test3 = FilterOut<["a", never], never>; // ['a']
+type test4 = FilterOut<[1, never, "a"], never>; // [1, 'a']
+type test5 = FilterOut<
+  [never, 1, "a", undefined, false, null],
+  never | null | undefined
+>; // [1, 'a', false]
+type test6 = FilterOut<
+  [number | null | undefined, never],
+  never | null | undefined
+>; // [number | null | undefined]
+
+
+// ------------code---------------
+type FilterOut<T extends any[], F> = T extends [infer L, ...infer R]
+  // 因为L有可能是联合类型，避免触发分布式条件类型
+  ? [L] extends [F]
+    // 如果L满足F，就过滤掉
+    ? FilterOut<R, F>
+    : [L, ...FilterOut<R, F>]
+  : [];
+```
+
+### Tuple to Enum Object
+
+>实现一个类型把元组转成类似枚举的对象。
+
+```ts
+// ---------test case------------
+const OperatingSystem = ["macOS", "Windows", "Linux"] as const;
+type test1 = Enum<[]>; // {}
+type test2 = Enum<typeof OperatingSystem>;
+//  {
+//   readonly MacOS: 'macOS'
+//   readonly Windows: 'Windows'
+//   readonly Linux: 'Linux'
+// }
+
+type test3 = Enum<typeof OperatingSystem, true>;
+// {
+//   readonly MacOS: 0
+//   readonly Windows: 1
+//   readonly Linux: 2
+// }
+
+
+// ------------code---------------
+// 获取元组的索引组成联合类型
+type TupleKeys<T extends readonly unknown[]> = T extends readonly [
+  infer _,
+  ...infer Tail
+]
+  ? TupleKeys<Tail> | Tail["length"]
+  : never;
+
+type Enum<T extends readonly string[], N extends boolean = false> = {
+  // 这里K就是对应的索引，0, 1, 2...，把K重映射为值
+  readonly [K in TupleKeys<T> as Capitalize<T[K]>]: N extends true ? K : T[K];
+};
+
+// 另一种解法
+type Enum<T extends readonly string[], N extends boolean = false> = {
+  // K extends `${number}`约束K为数值的字符串类型，这里相当于取索引
+  readonly [K in keyof T as K extends `${number}` ? Capitalize<T[K]>: never]: N extends false
+    ? T[K]
+    // 这里的K是字符串字面量类型，要转成数字字面量类型
+    : K extends `${infer I extends number}` 
+       ? I
+       : never
+};
+```
+
+### printf 
+
+```ts
+todo
+```
+
+### DeepObjectToUniq
+
+```ts
+todo
+```
+
+### Length of String 2
+
+```ts
+todo
+```
+
+### Union to Tuple
+
+```ts
+todo
+```
+
+### String Join
+
+```ts
+todo
+```
+
+### DeepPick 
+
+```ts
+todo
+```
+
+### Pinia
+
+```ts
+todo
+```
+
+### Camelize 
+
+>实现`Camelize`类型: 将对象属性名从 蛇形命名(下划线命名) 转换为 小驼峰命名。
+
+```ts
+// ---------test case------------
+type test1 = Camelize<{
+  some_prop: string;
+  prop: { another_prop: string };
+  array: [
+    { snake_case: string },
+    { another_element: { yet_another_prop: string } },
+    { yet_another_element: string }
+  ];
+}>;
+// {
+//   someProp: string;
+//   prop: { anotherProp: string };
+//   array: [
+//     { snakeCase: string },
+//     { anotherElement: { yetAnotherProp: string } },
+//     { yetAnotherElement: string }
+//   ];
+// }
+
+
+// ------------code---------------
+// 驼峰命名 some_prop -> someProp
+// 以_做分隔符，取出前后的字符，把后面的字符首字符转为大写后继续递归
+type CamelizeKey<T extends string> = T extends `${infer L}_${infer R}`
+  ? `${L}${CamelizeKey<Capitalize<R>>}`
+  : T;
+
+type Camelize<T> = T extends unknown[]
+  ? // 如果T是数组，通过[K in keyof T]出来的结构体也是数组
+    {
+      [K in keyof T]: Camelize<T[K]>;
+    }
+  : T extends object
+  // 如果T是对象，则把K转一层
+  ? {
+      [K in keyof T as CamelizeKey<K & string>]: Camelize<T[K]>;
+    }
+  : T;
+```
+
 
 
 
