@@ -2329,8 +2329,48 @@ type Camelize<T> = T extends unknown[]
   : T;
 ```
 
+### Drop String
+
+>从字符串中删除指定的字符。
+
+```ts
+// ---------test case------------
+type test = DropString<'foobar!', 'fb'> // 'ooar!'
+
+// ------------code---------------
+type StrToArr<
+  S extends string,
+  U extends string[] = []
+> = S extends `${infer F}${infer R}` ? StrToArr<R, [...U, F]> : U;
+
+type DropString<
+  S extends string,
+  R extends string,
+  // 把R转成元组（存储R中的每一个子字符
+  U extends string[] = StrToArr<R>
+> = S extends `${infer F}${infer Rest}`
+  // 遍历S，每次取出第一个子字符串F，判断是否存在元组中
+  ? F extends U[number]
+    // 存在则舍弃
+    ? DropString<Rest, R, U>
+    // 否则拼接
+    : `${F}${DropString<Rest, R, U>}`
+  : S;
 
 
+// 另一种解法
+type DropString<
+  S extends string,
+  R extends string
+> = S extends `${infer F}${infer Rest}`
+  // 反向匹配，用R去匹配F
+  ? R extends `${any}${F}${any}`
+    // 匹配上了，则舍弃F
+    ? DropString<Rest, R>
+    // 否则拼接
+    : `${F}${DropString<Rest, R>}`
+  : S;
+```
 
 
 
