@@ -2373,6 +2373,201 @@ type DropString<
 ```
 
 
+### Split
+
+>`split()`方法通过查找分隔符将字符串拆分为子字符串数组，并返回新数组，实现类型版本的`split`。
+
+```ts
+// ---------test case------------
+type test1 = Split<"Hi! How are you?", "z">; // ['Hi! How are you?']
+type test2 = Split<"Hi! How are you?", " ">; // ['Hi!', 'How', 'are', 'you?']
+type test3 = Split<"Hi! How are you?", "">; // ['H', 'i', '!', ' ', 'H', 'o', 'w', ' ', 'a', 'r', 'e', ' ', 'y', 'o', 'u', '?']
+type test4 = Split<"", "">; // []
+type test5 = Split<"", "z">; // ['']
+type test6 = Split<string, "whatever">; // string[]
+
+// ------------code---------------
+type Split<S extends string, SEP extends string> = string extends S
+  // 对直接传入string做处理
+  ? string[]
+  // 以分隔符匹配，匹配分隔符前面和后面的所有字符
+  : S extends `${infer L}${SEP}${infer R}`
+  // 把前面的添加进数组，继续递归后面的
+  ? [L, ...Split<R, SEP>]
+  // 判断分隔符是否非空
+  : SEP extends ""
+  ? []
+  : [S];
+```
+
+### ClassPublicKeys
+
+>实现泛型的`ClassPublicKeys<T>`，它返回类的所有`pulic key`。
+
+```ts
+// ---------test case------------
+class A {
+  public str: string;
+  protected num: number;
+  private bool: boolean;
+  constructor() {
+    this.str = "naive";
+    this.num = 19260917;
+    this.bool = true;
+  }
+
+  getNum() {
+    return Math.random();
+  }
+}
+
+type test = ClassPublicKeys<A>; //  'str' | 'getNum'
+
+
+// ------------code---------------
+type ClassPublicKeys<T> = keyof T
+```
+
+### IsRequiredKey 
+
+>实现一个泛型`IsRequiredKey<T, K>`，返回`K`是否是`T`的必需键。
+
+```ts
+// ---------test case------------
+type test1 = IsRequiredKey<{ a: number; b?: string }, "a">; // true
+type test2 = IsRequiredKey<{ a: number; b?: string }, "b">; // false
+type test3 = IsRequiredKey<{ a: number; b?: string }, "b" | "a">; // false
+
+
+// ------------code---------------
+// 因为K有可能是联合类型，因此包裹下，避免触发分布式条件类型
+type IsRequiredKey<T, K extends keyof T> = [K] extends [
+  // 取出所有键（必需的）的联合
+  keyof {
+    // 保留T中必需的键
+    [P in keyof T as T[P] extends Required<T>[K] ? P : never]: P;
+  }
+]
+  ? true
+  : false;
+
+// 另一种解法
+type IsRequiredKey<
+  Type,
+  Keys extends keyof Type
+> = Pick<Type, Keys> extends Required<Pick<Type, Keys>>
+  ? true
+  : false
+```
+
+### ObjectFromEntries
+
+>实现类型版本的`Object.fromEntries`。
+
+```ts
+// ---------test case------------
+interface Model {
+  name: string;
+  age: number;
+  locations: string[] | null;
+}
+
+type ModelEntries =
+  | ["name", string]
+  | ["age", number]
+  | ["locations", string[] | null];
+
+type test1 = ObjectFromEntries<ModelEntries>; // Model
+
+// ------------code---------------
+// T为元组的联合类型
+type ObjectFromEntries<T extends [string, any]> = {
+  // P遍历联合类型就是每一项元组，直接取0和1索引即可
+  [P in T as P[0]]: P[1];
+};
+```
+
+### IsPalindrome
+
+>实现`type IsPalindrome<T>`检查字符串或数字是否为回文。
+
+```ts
+// ---------test case------------
+type test1 = IsPalindrome<"abc">; // false
+type test2 = IsPalindrome<"b">; // true
+type test3 = IsPalindrome<"abca">; // false
+type test4 = IsPalindrome<"abba">; // true
+type test5 = IsPalindrome<"abcba">; // true
+type test6 = IsPalindrome<121>; // true
+type test7 = IsPalindrome<2332>; // true
+type test8 = IsPalindrome<19260817>; // false
+
+
+// ------------code---------------
+type ToArr<S> = `${S}` extends `${infer L}${infer R}` ? [L, ...ToArr<R>] : [];
+
+type IsPalindrome<
+  T extends string | number,
+  U extends string[] = ToArr<T>
+  // 把T转成元组，依次匹配首项和尾项
+> = U extends [infer L, ...infer Rest extends string[], infer R]
+  ? L extends R
+    // 满足则取出首尾项递归
+    ? IsPalindrome<T, Rest>
+    : false
+  : true;
+
+// 另一种解法
+// 因为字符串在没有指定字符进行匹配时，无法直接匹配首尾字符, 先匹配出第一个字符L
+type IsPalindrome<T extends string | number> =
+  `${T}` extends `${infer L}${infer R}`
+    ? R extends ""
+      ? true
+      : // 再匹配L是否在首尾
+      `${T}` extends `${L}${infer Rest}${L}`
+      ? IsPalindrome<Rest>
+      : false
+    : true;
+```
+
+### Mutable Keys
+
+>实现类型`MutableKeys`，它将所有可变(非只读)键选择到一个联合中。
+
+```ts
+// ---------test case------------
+type test1 = MutableKeys<{ a: number; readonly b: string }>; // 'a'
+type test2 = MutableKeys<{ a: undefined; readonly b: undefined }>; // 'a'
+type test3 = MutableKeys<{
+  a: undefined;
+  readonly b?: undefined;
+  c: string;
+  d: null;
+}>; // 'a' | 'c' | 'd'
+type test4 = MutableKeys<{}>; // never
+
+
+// ------------code---------------
+// 判断两个类型是否相等
+type IsEqual<A, B> = (<X>() => X extends A ? 1 : 2) extends <X>() => X extends B
+  ? 1
+  : 2
+  ? true
+  : false;
+
+type MutableKeys<T> = keyof {
+  [K in keyof T as IsEqual<
+    // 以K构建一个对象类型，判断是否和去掉只读属性修饰符的类型相等
+    { [P in K]: T[P] },
+    { -readonly [P in K]: T[P] }
+    // 相等则证明K没有只读属性修饰符
+  > extends true
+    ? K
+    : never]: K;
+};
+```
+
+
 
 
 

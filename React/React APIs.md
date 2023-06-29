@@ -437,3 +437,239 @@ function Editor() {
 ## 4. 一句话总结用法
 
 >`lazy`用于在组件第一次渲染前延迟加载该组件，接收一个返回`Promise`或者`类Promise对象`的函数，会将其解析成组件，通过配合`Suspense`在组件等待加载时，给到可感知的展示效果。
+
+## [memo](https://react.dev/reference/react/memo)
+
+>用于在组件`props`没有改变的情况下跳过重新渲染。
+
+```ts
+const MemoizedComponent = memo(SomeComponent, arePropsEqual?)
+```
+
+## 1. Reference 
+
+### Parameters 
+
+- `Component`：要缓存的组件，`memo`不会修改组件，但是会返回一个新的。
+
+- `arePropsEqual`：一个函数，接收两个参数，组件旧的`props`和新的`props`。如果新旧`props`相等，则它应该返回true，否则返回false。通常情况下不需要指定此函数，`React`用`Object.is`比较。（可以自定义是否读取缓存的组件）
+
+### Returns
+
+>返回一个新的`React`组件，它的行为和提供给`memo`的组件相同，只是当它的父组件重新渲染时`React`不会总是重新渲染它，除非它的`props`发生了变化。
+
+## 2. Usage 
+
+### Skipping re-rendering when props are unchanged 
+
+>`React`通常在其父组件重新渲染时重新渲染子组件。可以使用`memo`创建一个组件，当它的父组件重新渲染时，只要它的新旧`props`相同就会跳过重新渲染，这样的组件被成为记忆化组件。
+
+```ts
+import { memo, useState } from 'react';
+
+export default function MyApp() {
+  const [name, setName] = useState('');
+  const [address, setAddress] = useState('');
+  return (
+    <>
+      <label>
+        Name{': '}
+        <input value={name} onChange={e => setName(e.target.value)} />
+      </label>
+      <label>
+        Address{': '}
+        <input value={address} onChange={e => setAddress(e.target.value)} />
+      </label>
+      // 父组件address状态发生变化时，Greeting不会重新渲染
+      <Greeting name={name} />
+    </>
+  );
+}
+
+const Greeting = memo(function Greeting({ name }) {
+  console.log("Greeting was rendered at", new Date().toLocaleTimeString());
+  return <h3>Hello{name && ', '}{name}!</h3>;
+});
+```
+
+### Updating a memoized component using state 
+
+>即使一个组件被记忆化了，当它自身的状态发生变化时，仍然会重新渲染。只与从父组件传递过来的`props`有关。
+
+```ts
+import { memo, useState } from 'react';
+
+export default function MyApp() {
+  const [name, setName] = useState('');
+  const [address, setAddress] = useState('');
+  return (
+    <>
+      <label>
+        Name{': '}
+        <input value={name} onChange={e => setName(e.target.value)} />
+      </label>
+      <label>
+        Address{': '}
+        <input value={address} onChange={e => setAddress(e.target.value)} />
+      </label>
+      <Greeting name={name} />
+    </>
+  );
+}
+
+const Greeting = memo(function Greeting({ name }) {
+  console.log('Greeting was rendered at', new Date().toLocaleTimeString());
+  const [greeting, setGreeting] = useState('Hello');
+  return (
+    <>
+      <h3>{greeting}{name && ', '}{name}!</h3>
+      <GreetingSelector value={greeting} onChange={setGreeting} />
+    </>
+  );
+});
+
+function GreetingSelector({ value, onChange }) {
+  return (
+    <>
+      <label>
+        <input
+          type="radio"
+          checked={value === 'Hello'}
+          onChange={e => onChange('Hello')}
+        />
+        Regular greeting
+      </label>
+      <label>
+        <input
+          type="radio"
+          checked={value === 'Hello and welcome'}
+          onChange={e => onChange('Hello and welcome')}
+        />
+        Enthusiastic greeting
+      </label>
+    </>
+  );
+}
+```
+
+### Updating a memoized component using a context 
+
+>>即使一个组件被记忆化了，当它使用的`context`发生变化时，仍然会重新渲染。只与从父组件传递过来的`props`有关。
+
+```ts
+import { createContext, memo, useContext, useState } from 'react';
+
+const ThemeContext = createContext(null);
+
+export default function MyApp() {
+  const [theme, setTheme] = useState('dark');
+
+  // 更改上下文状态
+  function handleClick() {
+    setTheme(theme === 'dark' ? 'light' : 'dark'); 
+  }
+
+  return (
+    <ThemeContext.Provider value={theme}>
+      <button onClick={handleClick}>
+        Switch theme
+      </button>
+      <Greeting name="Taylor" />
+    </ThemeContext.Provider>
+  );
+}
+
+const Greeting = memo(function Greeting({ name }) {
+  console.log("Greeting was rendered at", new Date().toLocaleTimeString());
+  const theme = useContext(ThemeContext);
+  return (
+    <h3 className={theme}>Hello, {name}!</h3>
+  );
+});
+```
+
+### Minimizing props changes 
+
+>当使用`memo`时，只要任何一个`prop`与先前的值不是浅层相等的话，组件就会重新渲染。`React`会使用 `Object.is`比较组件中的每个`prop`与其先前的值。
+
+```ts
+function Page() {
+  const [name, setName] = useState('Taylor');
+  const [age, setAge] = useState(42);
+
+  // 尽量减少props的变化次数，这里props是个对象，可以使用useMemo包裹
+  // 避免组件每次渲染都重新创建一个新的对象
+  const person = useMemo(
+    () => ({ name, age }),
+    [name, age]
+  );
+
+  return <Profile person={person} />;
+}
+
+const Profile = memo(function Profile({ person }) {
+  // ...
+});
+
+// 如果要将一个函数传递给记忆化组件，要么在组件外部声明，要么使用useCallback缓存
+```
+
+### Specifying a custom comparison function 
+
+>可以自定义比较函数，比较新旧`props`，确定是否重新渲染。
+
+```ts
+const Chart = memo(function Chart({ dataPoints }) {
+  // ...
+}, arePropsEqual);
+
+// 自定义比较函数
+function arePropsEqual(oldProps, newProps) {
+  return (
+    oldProps.dataPoints.length === newProps.dataPoints.length &&
+    oldProps.dataPoints.every((oldPoint, index) => {
+      const newPoint = newProps.dataPoints[index];
+      return oldPoint.x === newPoint.x && oldPoint.y === newPoint.y;
+    })
+  );
+}
+```
+
+## 3. Troubleshooting 
+
+### My component re-renders when a prop is an object, array, or function 
+
+>`React`通过浅比较来比较新旧`props`，对于引用类型，会比较引用是否相等，如果每次父组件重新渲染都是创建的一个新的对象或数组，即使它们每个元素都相同，`React`仍然会认为它已更改。同样地，如果在渲染时创建了一个新的函数，即使该函数有相同定义，`React`也会认为它已更改。
+
+## 4. 一句话总结用法
+
+>`memo`接收两个参数，第一个是需要缓存的组件，它通过浅层比较组件的新旧`props`来确定组件是否跳过重新渲染，第二个参数是自定义比较函数，如果函数返回值为`false`，则组件重新渲染，反之亦然。
+
+## startTransition
+
+>可以在不阻塞UI的情况下更新状态。
+
+```ts
+startTransition(scope)
+```
+
+## 1. Reference 
+
+### Parameters 
+
+- `scope`：调用一个或多个`set`函数来更新状态的函数，`React`会立即调用`scope`，并将调用期间所有计划同步执行的状态更新标记为`transition`状态。（非阻塞）
+
+### Returns 
+
+>`startTrasition`没有返回值。
+
+### Caveats 
+
+
+- `startTrasition`没有提供一种跟踪`transition`是否处于`pending`状态的方法，如果想要显示一个`pending`的显示，需要使用`useTransition`。
+
+- 
+
+-
+
+-

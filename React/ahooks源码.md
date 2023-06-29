@@ -134,13 +134,124 @@ function useToggle<D, R>(defaultValue: D = false as unknown as D, reverseValue?:
 }
 ```
 
+
 ### useUrlState
+
+```ts
+todo
+```
 
 ### useCookieState
 
 >将状态存储在`Cookie`中的`Hook`。
 
 ```ts
+// 依赖js-cookie
+import Cookies from 'js-cookie';
+import { useState } from 'react';
+// 持久化的缓存一个函数
+import useMemoizedFn from '../useMemoizedFn';
+import { isFunction, isString } from '../utils';
 
+export type State = string | undefined;
+
+// CookieAttributes的类型定义
+interface CookieAttributes {
+  /**
+   * 指定cookie的有效期，如果省略默认为会话Cookie（max-age也可以设置Cookie的过期
+   */
+  expires?: number | Date | undefined;
+  /**
+   * path 和 domain定义Cookie的作用域，即 Cookie 应该发送给哪些 URL
+   * 指定一个URL路径，该URL路径必须存在于请求的URL中，以便发送Cookie标头（子路径也会被匹配
+   */
+  path?: string | undefined;
+
+  /**
+   * 指定了哪些主机可以接受 Cookie，默认为创建Cookie时的
+   */
+  domain?: string | undefined;
+
+  /**
+   * 只在安全的协议（HTTPS）下传输，默认值是false
+   */
+  secure?: boolean | undefined;
+
+  /**
+   * 允许服务器指定是否/何时通过跨站点请求发送，提供了一些针对跨站点请求伪造攻击（CSRF）的保护
+   */
+  sameSite?: 'strict' | 'Strict' | 'lax' | 'Lax' | 'none' | 'None' | undefined;
+
+  // 还有HttpOnly：防止客户端（document.cookie）访问 Cookie，仅作用于服务端
+
+  [property: string]: any;
+}
+
+// 继承自Cookies.CookieAttributes并额外增加了一个可选的defaultValue
+// 属性都是可选的，因此设置时传入新的options时可以只传入某个属性
+export interface Options extends Cookies.CookieAttributes {
+  defaultValue?: State | (() => State);
+}
+
+function useCookieState(cookieKey: string, options: Options = {}) {
+  // 设置state的初始值
+  const [state, setState] = useState<State>(() => {
+
+    // 通过cookieKey读取cookie
+    const cookieValue = Cookies.get(cookieKey);
+
+    // 如果有值就直接返回
+    if (isString(cookieValue)) return cookieValue;
+
+    // 没读取到值返回传入的默认值
+    if (isFunction(options.defaultValue)) {
+      return options.defaultValue();
+    }
+
+    return options.defaultValue;
+  });
+
+  const updateState = useMemoizedFn(
+    (
+      newValue: State | ((prevState: State) => State),
+      // 更新状态时，支持传入新的配置options
+      newOptions: Cookies.CookieAttributes = {},
+    ) => {
+      // { ...options, ...newOptions }合并首次传入的配置
+      const { defaultValue, ...restOptions } = { ...options, ...newOptions };
+
+      // 获取新状态的值并设置
+      const value = isFunction(newValue) ? newValue(state) : newValue;
+      setState(value);
+
+      // 如果新状态为undefined，则删除这个cookie
+      if (value === undefined) {
+        Cookies.remove(cookieKey);
+      } else {
+
+        // 更新cookie
+        Cookies.set(cookieKey, value, restOptions);
+      }
+    },
+  );
+
+  return [state, updateState] as const;
+}
+```
+
+### useLocalStorageState
+
+>将状态存储在`localStorage`中的`Hook`。
+
+```ts
+import { createUseStorageState } from '../createUseStorageState';
+
+// 是否是浏览器环境 typeof window !== 'undefined' && window.document && window.document.createElement
+import isBrowser from '../utils/isBrowser';
+
+const useLocalStorageState = createUseStorageState(() => (isBrowser ? localStorage : undefined));
+
+
+// createUseStorageState.ts
 
 ```
