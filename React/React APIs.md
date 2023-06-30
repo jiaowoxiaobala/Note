@@ -668,8 +668,40 @@ startTransition(scope)
 
 - `startTrasition`没有提供一种跟踪`transition`是否处于`pending`状态的方法，如果想要显示一个`pending`的显示，需要使用`useTransition`。
 
-- 
+- 只有当访问某个`state`的`set`函数时，才能将它的更新包裹到`transition`中。如果你想根据`props`或自定义`Hook`的返回值来启动一个`transition`，请尝试使用`useDeferredValue`。
 
--
+- 传递给`startTransition`的函数必须是同步的，`React`会立即执行此函数，将其执行期间发生的所有`state`更新标记为 `transition`。如果你想试着稍后执行更多的`state`更新（例如，在`setTimeout`中），它们不会被标记为`transition`。
 
--
+- 一个被标记为`transition`的`state`更新时将会被其他`state`更新打断。
+
+- `transition`更新不能用于控制文本输入，文本输入需要同步的状态更新。
+
+- 如果有多个正在进行的`transition`，当前`React`会将它们集中在一起处理。（这个限制，在未来的版本中可能会被移除）
+
+## 2. Usage
+
+### Marking a state update as a non-blocking transition
+
+>将更新状态的set函数包裹在`startTransition`中。
+
+
+```ts
+import { startTransition } from 'react';
+
+function TabContainer() {
+  const [tab, setTab] = useState('about');
+
+  function selectTab(nextTab) {
+    // 通过 transition，UI在重新渲染过程中保持响应
+    // 例如用户点击一个tab，在这个tab下的组件还没渲染完前，点击另一个tab是无需等待的
+    startTransition(() => {
+      setTab(nextTab);
+    });
+  }
+  // ...
+}
+```
+
+## 3. 一句话总结用法
+
+>`startTransition`用于在不阻塞`UI`的情况下进行状态更新，且是可中断的。接收一个函数，`React`会立即调用这个函数，并把该函数中所有同步执行的状态更新标记为`transition`状态。

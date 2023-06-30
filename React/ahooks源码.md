@@ -1,6 +1,39 @@
 分析`ahooks`源码，学习自定义`Hooks`。
 
-## 和状态相关的`Hooks`
+
+## LifeCycle
+### useUnmount
+
+>在组件卸载`（unmount）`时执行的`Hook`。
+
+```ts
+import { useEffect } from 'react';
+import useLatest from '../useLatest';
+import { isFunction } from '../utils';
+import isDev from '../utils/isDev';
+
+const useUnmount = (fn: () => void) => {
+  if (isDev) {
+    if (!isFunction(fn)) {
+      console.error(`useUnmount expected parameter is a function, got ${typeof fn}`);
+    }
+  }
+
+  // 把fn保存到ref中（假设后续的渲染期间传入的fn变了，这里还是保持首次传入的引用
+  const fnRef = useLatest(fn);
+
+  useEffect(
+    // 传入useEffect的函数，可以返回另一个函数（清理副作用）在组件卸载时执行
+    // 这里用了箭头函数的简写
+    () => () => {
+      fnRef.current();
+    },
+    [],
+  );
+};
+```
+
+## State
 
 ### useSetState
 
@@ -253,5 +286,261 @@ const useLocalStorageState = createUseStorageState(() => (isBrowser ? localStora
 
 
 // createUseStorageState.ts
+import { useState } from 'react';
+import useMemoizedFn from '../useMemoizedFn';
+// 组件更新时执行副作用（忽略首次执行
+import useUpdateEffect from '../useUpdateEffect';
+// isUndef：判断是否是undefined
+import { isFunction, isUndef } from '../utils';
 
+export interface IFuncUpdater<T> {
+  (previousState?: T): T;
+}
+export interface IFuncStorage {
+  (): Storage;
+}
+
+export interface Options<T> {
+  serializer?: (value: T) => string;
+  deserializer?: (value: string) => T;
+  defaultValue?: T | IFuncUpdater<T>;
+  // 支持自定义错误处理函数
+  onError?: (error: unknown) => void;
+}
+
+// 创建useStorageState的工厂函数
+export function createUseStorageState(getStorage: () => Storage | undefined) {
+
+  function useStorageState<T>(key: string, options: Options<T> = {}) {
+    let storage: Storage | undefined;
+    const {
+      // 默认调用console.error
+      onError = (e) => {
+        console.error(e);
+      },
+    } = options;
+
+    // https://github.com/alibaba/hooks/issues/800
+    try {
+      storage = getStorage();
+    } catch (err) {
+      onError(err);
+    }
+
+    const serializer = (value: T) => {
+      // 在stringify前支持自定义处理
+      if (options?.serializer) {
+        return options?.serializer(value);
+      }
+      return JSON.stringify(value);
+    };
+
+    const deserializer = (value: string): T => {
+      // 在parse前支持自定义处理
+      if (options?.deserializer) {
+        return options?.deserializer(value);
+      }
+      return JSON.parse(value);
+    };
+
+    function getStoredValue() {
+      try {
+        // 读取key对应存储的value，这里storage可能为undefined，也可能读取的是null
+        // window.storage.getItem读取不存在的key时会返回null
+        const raw = storage?.getItem(key);
+        if (raw) {
+          return deserializer(raw);
+        }
+      } catch (e) {
+        onError(e);
+      }
+
+      // 兼容处理，没读取到就返回默认值
+      if (isFunction(options?.defaultValue)) {
+        return options?.defaultValue();
+      }
+      return options?.defaultValue;
+    }
+
+    // 处理状态
+    const [state, setState] = useState(() => getStoredValue());
+
+    // 追踪key的变化重新获取key对应的value
+    useUpdateEffect(() => {
+      setState(getStoredValue());
+    }, [key]);
+
+    const updateState = (value?: T | IFuncUpdater<T>) => {
+      // 更新状态
+      const currentState = isFunction(value) ? value(state) : value;
+      setState(currentState);
+
+      // 如果更新后的状态值为undefined，则删除这个key
+      if (isUndef(currentState)) {
+        storage?.removeItem(key);
+      } else {
+        try {
+          storage?.setItem(key, serializer(currentState));
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    };
+
+    return [state, useMemoizedFn(updateState)] as const;
+  }
+  return useStorageState;
+}
+```
+
+### useSessionStorageState
+
+>将状态存储在`SessionStorage`中的`Hook`。
+
+```ts
+import { createUseStorageState } from '../createUseStorageState';
+import isBrowser from '../utils/isBrowser';
+
+// createUseStorageState工厂函数分析在上面↑
+const useSessionStorageState = createUseStorageState(() =>
+  isBrowser ? sessionStorage : undefined,
+);
+```
+### useDebounce
+
+>用来处理防抖值的`Hook`。
+
+```ts
+import { useEffect, useState } from 'react';
+import useDebounceFn from '../useDebounceFn';
+import type { DebounceOptions } from './debounceOptions';
+
+function useDebounce<T>(value: T, options?: DebounceOptions) {
+  // 接收传入的value为debounced的初始值
+  const [debounced, setDebounced] = useState(value);
+
+  // run会执行传入useDebounceFn的函数（带防抖
+  const { run } = useDebounceFn(() => {
+    setDebounced(value);
+  }, options);
+
+  // 追踪value的变化，更新debounced
+  useEffect(() => {
+    run();
+  }, [value]);
+
+  return debounced;
+}
+```
+
+### useThrottle
+
+```ts
+todo
+```
+
+### useMap
+
+```ts
+todo
+```
+
+### useSet
+
+```ts
+todo
+```
+
+## Effect
+### useDebounceFn
+
+>用来处理防抖函数的`Hook`。
+
+```ts
+// 依赖lodash的debounce工具方法
+import debounce from 'lodash/debounce';
+import { useMemo } from 'react';
+// import type { DebounceOptions } from '../useDebounce/debounceOptions';
+
+import useLatest from '../useLatest';
+import useUnmount from '../useUnmount';
+import { isFunction } from '../utils';
+
+// process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test'
+import isDev from '../utils/isDev';
+
+// DebounceOptions类型定义
+interface DebounceOptions {
+  // 需要延迟的毫秒数
+  wait?: number;
+  // 指定在延迟开始前调用
+  leading?: boolean;
+  // 指定在延迟结束后调用
+  trailing?: boolean;
+  // 设置 允许被延迟的最大值
+  maxWait?: number;
+}
+
+// 任意函数类型
+type noop = (...args: any[]) => any;
+
+function useDebounceFn<T extends noop>(fn: T, options?: DebounceOptions) {
+  // 开发环境，对传入非函数抛出错误
+  if (isDev) {
+    if (!isFunction(fn)) {
+      console.error(`useDebounceFn expected parameter is a function, got ${typeof fn}`);
+    }
+  }
+
+  // 把fn存储到ref中
+  const fnRef = useLatest(fn);
+
+  const wait = options?.wait ?? 1000;
+
+  // 把debounce缓存起来，在组件更新时引用不变
+  const debounced = useMemo(
+    () =>
+      debounce(
+        (...args: Parameters<T>): ReturnType<T> => {
+          return fnRef.current(...args);
+        },
+        wait,
+        options,
+      ),
+    [],
+  );
+
+  // 组件卸载时，取消debounced
+  useUnmount(() => {
+    debounced.cancel();
+  });
+
+  return {
+    run: debounced,
+    cancel: debounced.cancel,
+
+    // 立即调用debounced
+    flush: debounced.flush,
+  };
+}
+```
+
+## Advanced
+
+### useLatest
+
+>返回当前最新值的`Hook`，可以避免闭包问题。
+
+```ts
+import { useRef } from 'react';
+
+function useLatest<T>(value: T) {
+  // 通过ref保存这个值
+  const ref = useRef(value);
+
+  // 组件重渲染时，给到ref最新的值
+  ref.current = value;
+
+  return ref;
+}
 ```

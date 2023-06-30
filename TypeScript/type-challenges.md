@@ -1828,6 +1828,27 @@ type CheckRepeatedTuple<T extends unknown[]> = T extends [infer L, ...infer R]
   : false;
 ```
 
+### Public Type
+
+>从给定类型`T`中移除以开头的键。
+
+```ts
+// ---------test case------------
+type test1 = PublicType<{ a: number }>; // { a: number }
+type test2 = PublicType<{ _b: string | bigint }>; // {}
+type test3 = PublicType<{ readonly c?: number }>; // { readonly c?: number }
+type test4 = PublicType<{ d: string; _e: string }>; // { d: string }
+type test5 = PublicType<{ _f: () => bigint[] }>; // {}
+type test6 = PublicType<{ g: "_g" }>; // { g: "_g" }
+type test7 = PublicType<{ __h: number; i: unknown }>; // { i: unknown }
+
+// ------------code---------------
+type PublicType<T extends object> = {
+  // 匹配以_开头的模板字符
+  [K in keyof T as K extends `_${any}` ? never : K]: T[K]
+}
+```
+
 ## hard
 
 ### Simple Vue
@@ -2566,6 +2587,106 @@ type MutableKeys<T> = keyof {
     : never]: K;
 };
 ```
+
+### Intersection
+
+>实现类似`Lodash.intersection`的类型版本。
+
+```ts
+// ---------test case------------
+type test1 = Intersection<[[1, 2], [2, 3], [2, 2]]>; // 2
+type test2 = Intersection<[[1, 2, 3], [2, 3, 4], [2, 2, 3]]>; // 2 | 3
+type test3 = Intersection<[[1, 2], [3, 4], [5, 6]]>; // never
+type test4 = Intersection<[[1, 2, 3], [2, 3, 4], 3]>; // 3
+type test5 = Intersection<[[1, 2, 3], 2 | 3 | 4, 2 | 3]>; // 2 | 3
+type test6 = Intersection<[[1, 2, 3], 2, 3]>; // never
+
+
+// ------------code---------------
+// 两个联合类型交叉取交集，unknown与其他类型组成交叉类型还是其他类型
+type e = (1 | 2) & (2 | 3 | 1) & unknown; // 1 | 2
+
+type ToUnion<T> = T extends unknown[] ? T[number] : T;
+
+type Intersection<T> = T extends [infer F, ...infer R]
+  // 遍历数组，取每一项交叉
+  ? ToUnion<F> & Intersection<R>
+  : unknown;
+```
+
+
+### Binary to Decimal
+
+```ts
+todo
+```
+
+### Object Key Paths
+
+>获取`.get (lodash函数)`可以调用的所有可能路径，以获取对象的值，实现类型版本。
+
+```ts
+todo
+```
+
+### Two Sum
+
+>实现类型版本的两数之和。
+
+```ts
+todo
+```
+
+### ValidData
+
+```ts
+todo
+// ---------test case------------
+type test1 = ValidDate<"0102">; // true
+type test2 = ValidDate<"0131">; // true
+type test3 = ValidDate<"1231">; // true
+type test4 = ValidDate<"0229">; // false
+type test5 = ValidDate<"0100">; // false
+type test6 = ValidDate<"0132">; // false
+type test7 = ValidDate<"1301">; // false
+type test8 = ValidDate<"0123">; // true
+type test9 = ValidDate<"01234">; // false
+type test10 = ValidDate<"">; // false
+
+// ------------code---------------
+type ValidDate<T extends string> = any;
+```
+
+### Assign 
+
+```ts
+todo
+```
+
+### Maximum
+
+```ts
+// ---------test case------------
+type test1 = Maximum<[]>; //never
+type test2 = Maximum<[0, 2, 1]>; //2
+type test3 = Maximum<[1, 20, 200, 150]>; //200
+
+
+// ------------code---------------
+type Maximum<
+  T extends any[],
+  U = T[number],
+  N extends any[] = []
+> = T extends []
+  ? never
+  // 这里就找到了满足条件的最大成员
+  : Equal<U, N["length"]> extends true
+  ? U
+  // U extends N["length"] ? never : U -> 可以排除U中满足N['length']的成员
+  // [...N, unknown] -> 不断扩大数组，这样会依次排除最小的成员
+  : Maximum<T, U extends N["length"] ? never : U, [...N, unknown]>;
+```
+
 
 
 
