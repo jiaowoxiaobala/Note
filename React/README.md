@@ -1,7 +1,9 @@
 
-1. <a href='./React Hooks.md'>跟着新官方文档过一遍React Hooks</a>
+1. <a href='./React Hooks.md'>跟着新官网过一遍React Hooks文档</a>
 
-2. <a href='./React APIs.md'>跟着新官方文档过一遍React APIs</a>
+2. <a href='./React APIs.md'>跟着新官网过一遍React APIs文档</a>
+
+<!-- 3. <a href='./Escape Hatches.md'>跟着新官网过一遍React Escape Hatches下的文档</a> -->
 
 3. <a href='./HOC.md'>higher-order component（高阶组件）</a>
 
