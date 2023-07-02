@@ -1,3 +1,5 @@
+文档目录结构保持和官方文档一致，例子全部来自官网。
+
 ## Zustand
 
 >一个小型、快速且可扩展的状态管理解决方法。
@@ -131,7 +133,7 @@ const useCountStore = create((set) => ({
 set((state) => newState, true)
 ```
 
-## Flux inspired practice
+## [Flux inspired practice](https://docs.pmnd.rs/zustand/guides/flux-inspired-practice)
 
 ### Recommended patterns
 
@@ -142,31 +144,33 @@ set((state) => newState, true)
 - 略，[文档指路](https://docs.pmnd.rs/zustand/guides/flux-inspired-practice#recommended-patterns)
 
 
-## Auto Generating Selectors
+## [Auto Generating Selectors](https://docs.pmnd.rs/zustand/guides/auto-generating-selectors)
 
->在使用存储中的属性或操作时，需要通过键名取值的方式，`state => state.bears`。
+>在使用存储中的属性或操作时，需要通过键名取值的方式，`state => state.bears`，可以借助工具函数简化。
 
 ### create the following function: createSelectors
 
 ```ts
 // 创建以下函数 createSelectors
-import { StoreApi, UseBoundStore } from 'zustand'
+import { StoreApi, UseBoundStore } from "zustand";
+
+type State = Record<keyof any, any>;
 
 type WithSelectors<S> = S extends { getState: () => infer T }
   ? S & { use: { [K in keyof T]: () => T[K] } }
-  : never
+  : never;
 
-const createSelectors = <S extends UseBoundStore<StoreApi<object>>>(
-  _store: S
+const createSelectors = <S extends UseBoundStore<StoreApi<State>>>(
+  _store: WithSelectors<S>
 ) => {
-  let store = _store as WithSelectors<typeof _store>
-  store.use = {}
-  for (let k of Object.keys(store.getState())) {
-    ;(store.use as any)[k] = () => store((s) => s[k as keyof typeof s])
+  const store = _store;
+  store.use = {};
+  for (const k of Object.keys(store.getState())) {
+    store.use[k] = () => store((s) => s[k]);
   }
 
-  return store
-}
+  return store;
+};
 
 // 如果有这样一个store
 interface BearState {
@@ -194,3 +198,35 @@ const increment = useBearStore.use.increment()
 // 默认的访问
 const [bears, increment] = useBearStoreBase(state => [state.bears, state.increment])
 ```
+
+## [Practice with no store actions](https://docs.pmnd.rs/zustand/guides/practice-with-no-store-actions)
+
+>推荐在存储中并置状态和状态更新方法（将状态和操作放在一起）。
+
+```ts
+// 例如这样创建一个包含数据和操作的独立存储
+export const useBoundStore = create((set) => ({
+  // 状态
+  count: 0,
+  text: 'hello',
+
+  // 状态更新方法
+  inc: () => set((state) => ({ count: state.count + 1 })),
+  setText: (text) => set({ text }),
+}))
+
+
+// 另一种是在存储外部的模块级别定义操作（状态更新方法）
+export const useBoundStore = create(() => ({
+  count: 0,
+  text: 'hello',
+}))
+
+export const inc = () =>
+  //  用setState更新状态
+  useBoundStore.setState((state) => ({ count: state.count + 1 }))
+
+export const setText = (text) => useBoundStore.setState({ text })
+```
+
+## [TypeScript Guide](https://docs.pmnd.rs/zustand/guides/typescript)
