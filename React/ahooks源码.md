@@ -33,6 +33,30 @@ const useUnmount = (fn: () => void) => {
 };
 ```
 
+### useUnmountedRef
+
+>获取当前组件是否已经卸载的`Hook`。
+
+```ts
+import { useEffect, useRef } from 'react';
+
+const useUnmountedRef = () => {
+  const unmountedRef = useRef(false);
+  // useEffect(() => () => unmountedRef.current = true, [])
+  useEffect(() => {
+    unmountedRef.current = false;
+
+    // 组件卸载时把状态改为true
+    return () => {
+      unmountedRef.current = true;
+    };
+  }, []);
+
+  return unmountedRef;
+};
+```
+
+
 ## State
 
 ### useSetState
@@ -435,20 +459,298 @@ function useDebounce<T>(value: T, options?: DebounceOptions) {
 
 ### useThrottle
 
+>用来处理节流值的`Hook`。
+
 ```ts
-todo
+import { useEffect, useState } from 'react';
+import useThrottleFn from '../useThrottleFn';
+// import type { ThrottleOptions } from './throttleOptions';
+interface ThrottleOptions {
+  // 等待时间，单位为毫秒
+  wait?: number;
+  // 指定在延迟开始前调用
+  leading?: boolean;
+  // 指定在延迟结束后调用
+  trailing?: boolean;
+}
+
+
+function useThrottle<T>(value: T, options?: ThrottleOptions) {
+  // 接收传入的value为throttled的初始值
+  const [throttled, setThrottled] = useState(value);
+
+  // run会执行传入useThrottleFn的函数（带节流
+  const { run } = useThrottleFn(() => {
+    setThrottled(value);
+  }, options);
+
+  // 追踪value的变化，更新throttled
+  useEffect(() => {
+    run();
+  }, [value]);
+
+  return throttled;
+}
 ```
 
 ### useMap
 
+>管理`Map`类型状态的`Hook`。
+
 ```ts
-todo
+import { useState } from 'react';
+import useMemoizedFn from '../useMemoizedFn';
+
+// IIterable<readonly [K, T]> -> [[K, T]]
+function useMap<K, T>(initialValue?: Iterable<readonly [K, T]>) {
+  const getInitValue = () => new Map(initialValue);
+  const [map, setMap] = useState<Map<K, T>>(getInitValue);
+
+  // 设置map
+  const set = (key: K, entry: T) => {
+    setMap((prev) => {
+      // 基于旧状态构造一个新Map对象（类似拷贝一份一模一样的，但是引用不同
+      // const map = new Map([['name', 'bw']]) // Map(1) {'name' => 'bw'}
+      // const ma2 = new Map(map) // Map(1) {'name' => 'bw'}
+      const temp = new Map(prev);
+      temp.set(key, entry);
+      return temp;
+    });
+  };
+
+  const setAll = (newMap: Iterable<readonly [K, T]>) => {
+    setMap(new Map(newMap));
+  };
+
+  // 移除map中指定元素
+  const remove = (key: K) => {
+    setMap((prev) => {
+      const temp = new Map(prev);
+      temp.delete(key);
+
+      return temp;
+    });
+  };
+
+  // 通过传入的initialValue重置状态
+  const reset = () => setMap(getInitValue());
+
+  const get = (key: K) => map.get(key);
+
+  return [
+    map,
+    {
+      set: useMemoizedFn(set),
+      setAll: useMemoizedFn(setAll),
+      remove: useMemoizedFn(remove),
+      reset: useMemoizedFn(reset),
+      get: useMemoizedFn(get),
+    },
+  ] as const;
+}
 ```
+
 
 ### useSet
 
+>管理`Set`类型状态的`Hook`。
+
 ```ts
-todo
+import { useState } from 'react';
+import useMemoizedFn from '../useMemoizedFn';
+
+function useSet<K>(initialValue?: Iterable<K>) {
+  const getInitValue = () => new Set(initialValue);
+  const [set, setSet] = useState<Set<K>>(getInitValue);
+
+  // 添加、删除都是重新构造一个Set对象，在这个Set对象上操作后更新状态
+  const add = (key: K) => {
+    if (set.has(key)) {
+      return;
+    }
+    setSet((prevSet) => {
+      const temp = new Set(prevSet);
+      temp.add(key);
+      return temp;
+    });
+  };
+
+  const remove = (key: K) => {
+    if (!set.has(key)) {
+      return;
+    }
+    setSet((prevSet) => {
+      const temp = new Set(prevSet);
+      temp.delete(key);
+      return temp;
+    });
+  };
+
+  // 通过传入的initialValue重置状态
+  const reset = () => setSet(getInitValue());
+
+  return [
+    set,
+    {
+      add: useMemoizedFn(add),
+      remove: useMemoizedFn(remove),
+      reset: useMemoizedFn(reset),
+    },
+  ] as const;
+}
+```
+
+### usePrevious
+
+>保存上一次状态的`Hook`。
+
+```ts
+import { useRef } from 'react';
+
+export type ShouldUpdateFunc<T> = (prev: T | undefined, next: T) => boolean;
+
+// 比较两个值是否相等
+// Object.is和===(全等)运算符的区别：Object.is将+0，-0判断为不相等，NaN和NaN判断相等（全等运算符相反
+const defaultShouldUpdate = <T>(a?: T, b?: T) => !Object.is(a, b);
+
+function usePrevious<T>(
+  state: T,
+  // 支持自定义 比较（是否更新ref保存的状态）函数
+  shouldUpdate: ShouldUpdateFunc<T> = defaultShouldUpdate,
+): T | undefined {
+
+  // 通过ref保存状态
+  const prevRef = useRef<T>();
+  const curRef = useRef<T>();
+
+  if (shouldUpdate(curRef.current, state)) {
+    prevRef.current = curRef.current;
+
+    // curRef.current记录状态变更，prevRef保存curRef.current变更前的状态
+    curRef.current = state;
+  }
+
+  return prevRef.current;
+}
+```
+
+### useRafState
+
+>在`requestAnimationFrame`回调中更新状态的`Hook`。
+
+```ts
+import { useCallback, useRef, useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
+import useUnmount from '../useUnmount';
+
+function useRafState<S>(initialState: S | (() => S)): [S, Dispatch<SetStateAction<S>>];
+function useRafState<S = undefined>(): [S | undefined, Dispatch<SetStateAction<S | undefined>>];
+
+function useRafState<S>(initialState?: S | (() => S)) {
+  // 保存requestAnimationFrame的请求ID（用于取消
+  const ref = useRef(0);
+  const [state, setState] = useState(initialState);
+
+  const setRafState = useCallback((value: S | ((prevState: S) => S)) => {
+
+    // 多次调用取消上一次的（防抖
+    cancelAnimationFrame(ref.current);
+
+    // 在浏览器下次重绘之前更新状态
+    ref.current = requestAnimationFrame(() => {
+      setState(value);
+    });
+  }, []);
+
+  // 组件卸载时取消
+  useUnmount(() => {
+    cancelAnimationFrame(ref.current);
+  });
+
+  return [state, setRafState] as const;
+}
+```
+
+### useSafeState
+
+>用法与`React.useState`完全一样，但是在组件卸载后异步回调内的 `setState` 不再执行，避免因组件卸载后更新状态而导致的内存泄漏。
+
+```ts
+import { useCallback, useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
+import useUnmountedRef from '../useUnmountedRef';
+
+function useSafeState<S>(initialState: S | (() => S)): [S, Dispatch<SetStateAction<S>>];
+
+function useSafeState<S = undefined>(): [S | undefined, Dispatch<SetStateAction<S | undefined>>];
+
+function useSafeState<S>(initialState?: S | (() => S)) {
+  const unmountedRef = useUnmountedRef();
+  const [state, setState] = useState(initialState);
+  const setCurrentState = useCallback((currentState) => {
+    /** if component is unmounted, stop update */
+    // 更新状态前判断组件是否卸载
+    if (unmountedRef.current) return;
+    setState(currentState);
+  }, []);
+
+  return [state, setCurrentState] as const;
+}
+```
+
+### useGetState
+
+>给`React.useState`增加了一个`getter`方法，以获取当前最新值。
+
+```ts
+import type { Dispatch, SetStateAction } from 'react';
+import { useState, useRef, useCallback } from 'react';
+
+type GetStateAction<S> = () => S;
+
+function useGetState<S>(
+  initialState: S | (() => S),
+): [S, Dispatch<SetStateAction<S>>, GetStateAction<S>];
+function useGetState<S = undefined>(): [
+  S | undefined,
+  Dispatch<SetStateAction<S | undefined>>,
+  GetStateAction<S | undefined>,
+];
+function useGetState<S>(initialState?: S) {
+  const [state, setState] = useState(initialState);
+  // 通过ref保存最新的状态
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  const getState = useCallback(() => stateRef.current, []);
+
+  return [state, setState, getState];
+}
+```
+
+### useResetState
+
+>提供重置`state`方法的`Hooks`，用法与 `React.useState` 基本一致。
+
+```ts
+import { useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
+import useMemoizedFn from '../useMemoizedFn';
+
+type ResetState = () => void;
+
+const useResetState = <S>(
+  initialState: S | (() => S),
+): [S, Dispatch<SetStateAction<S>>, ResetState] => {
+  const [state, setState] = useState(initialState);
+
+  const resetState = useMemoizedFn(() => {
+    // 更新状态为传入的初始值
+    setState(initialState);
+  });
+
+  return [state, setState, resetState];
+};
 ```
 
 ## Effect
@@ -524,6 +826,65 @@ function useDebounceFn<T extends noop>(fn: T, options?: DebounceOptions) {
   };
 }
 ```
+
+### useThrottleFn
+
+>用来处理函数节流的`Hook`。
+
+```ts
+// 依赖lodash的throttle工具方法
+import throttle from 'lodash/throttle';
+import { useMemo } from 'react';
+import useLatest from '../useLatest';
+import type { ThrottleOptions } from '../useThrottle/throttleOptions';
+import useUnmount from '../useUnmount';
+import { isFunction } from '../utils';
+
+// 判断开发环境
+import isDev from '../utils/isDev';
+
+// 任意函数类型
+type noop = (...args: any[]) => any;
+
+function useThrottleFn<T extends noop>(fn: T, options?: ThrottleOptions) {
+  // 开发环境，校验是否传入的是函数，否则报错
+  if (isDev) {
+    if (!isFunction(fn)) {
+      console.error(`useThrottleFn expected parameter is a function, got ${typeof fn}`);
+    }
+  }
+
+  // 把fn存储到ref中
+  const fnRef = useLatest(fn);
+
+  const wait = options?.wait ?? 1000;
+
+  // 把throttle缓存起来，在组件更新时引用不变
+  const throttled = useMemo(
+    () =>
+      throttle(
+        (...args: Parameters<T>): ReturnType<T> => {
+          return fnRef.current(...args);
+        },
+        wait,
+        options,
+      ),
+    [],
+  );
+  
+  // 组件卸载时，取消throttled
+  useUnmount(() => {
+    throttled.cancel();
+  });
+
+  return {
+    run: throttled,
+    cancel: throttled.cancel,
+    flush: throttled.flush,
+  };
+}
+```
+
 
 ## Advanced
 

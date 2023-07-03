@@ -2687,7 +2687,215 @@ type Maximum<
   : Maximum<T, U extends N["length"] ? never : U, [...N, unknown]>;
 ```
 
+### Capitalize Nest Object Keys
 
+>将对象的键大写，如果值是数组，则遍历数组中的对象。
+
+```ts
+// ---------test case------------
+type foo = {
+  foo: string;
+  bars: [{ foo: string }];
+};
+
+type Foo = {
+  Foo: string;
+  Bars: [
+    {
+      Foo: string;
+    }
+  ];
+};
+
+type test1 = CapitalizeNestObjectKeys<foo>; // Foo
+
+
+// ------------code---------------
+type CapitalizeNestObjectKeys<T> = T extends unknown[]
+  ? T extends [infer F, ...infer R]
+    // T如果是数组类型就递归处理每个成员
+    ? [CapitalizeNestObjectKeys<F>, ...CapitalizeNestObjectKeys<R>]
+    : []
+  : {
+      // 把K 重映射 为大写开头
+      [K in keyof T as Capitalize<K & string>]: T[K] extends unknown[]
+        ? CapitalizeNestObjectKeys<T[K]>
+        : T[K];
+    };
+
+```
+
+### Replace Union
+
+>给定一个类型联合和要替换的类型对数组`([[string, number]， [Date, null]])`，返回一个用类型对替换的新联合。
+
+```ts
+// ---------test case------------
+// string -> null
+type test1 = UnionReplace<number | string, [[string, null]]>; // number | null
+
+// Date -> string; Function -> undefined
+type test2 = UnionReplace<
+  Function | Date | object,
+  [[Date, string], [Function, undefined]]
+>; // undefined | string | object
+
+
+// ------------code---------------
+// 思路：遍历U，在联合类型T中替换指定类型
+type UnionReplace<T, U extends [any, any][]> = U extends [
+  infer F extends [any, any],
+  ...infer R extends [any, any][]
+]
+  // 假设T为number | string，F[0]为string，这里触发分布式条件类型
+  // 当执行到string extends string时，满足条件得到F[1]，number不满足条件得到原值
+  // 最后就是number | F[1]，所以结果就是number | null
+  ? UnionReplace<T extends F[0] ? F[1] : T, R>
+  : T;
+```
+
+### FizzBuzz 
+
+```ts
+todo
+```
+
+### Run-length encoding
+
+```ts
+todo
+```
+
+### Tree path array
+
+```ts
+todo
+```
+
+### SnakeCase
+
+>创建一个`SnakeCase<T>`泛型，将以`camelCase`格式格式化的字符串转换为以`snake`格式格式化的字符串。
+
+
+```ts
+// ---------test case------------
+type test1 = SnakeCase<"hello">; // 'hello'
+type test2 = SnakeCase<"userName">; // 'user_name'
+type test3 = SnakeCase<"getElementById">; // 'get_element_by_id'
+type test4 = SnakeCase<"getElementById" | "getElementByClassNames">; // 'get_element_by_id' | 'get_element_by_class_names'
+
+
+// ------------code---------------
+// U存储格式化后的T
+type SnakeCase<T, U extends string = ""> = T extends `${infer F}${infer R}`
+  // 遍历T，如果遍历到的字符是大写则转为小写拼接，否则直接拼接
+  ? SnakeCase<R, `${U}${F extends Capitalize<F> ? "_" : ""}${Uncapitalize<F>}`>
+  : U;
+
+// 另一种解法
+type SnakeCase<T> = T extends `${infer F}${infer R}`
+  ? F extends Capitalize<F>
+    ? `_${Uncapitalize<F>}${SnakeCase<R>}`
+    : `${F}${SnakeCase<R>}`
+  : "";
+```
+
+### IsNegativeNumber
+
+>实现一个类型判断是否是负数。
+
+```ts
+// ---------test case------------
+type test1 = IsNegativeNumber<0>; // false
+type test2 = IsNegativeNumber<number>; // never
+type test3 = IsNegativeNumber<-1 | -2>; // never
+type test4 = IsNegativeNumber<-1>; // true
+type test5 = IsNegativeNumber<-1.9>; // true
+type test6 = IsNegativeNumber<-100_000_000>; // true
+type test7 = IsNegativeNumber<1>; // false
+type test8 = IsNegativeNumber<1.9>; // false
+type test9 = IsNegativeNumber<100_000_000>; // false
+
+
+// ------------code---------------
+// 判断类型是否是联合类型
+type IsUnion<T, U = T> = T extends T ? ([U] extends [T] ? false : true) : never;
+
+type IsNegativeNumber<T extends number> = IsUnion<T> extends true
+  ? never
+  : number extends T
+  // 联合类型、number类型返回never
+  ? never
+  // 判断是否匹配到负号-，并且约束推导出来的_类型为number
+  : `${T}` extends `-${infer _ extends number}`
+  ? true
+  : false;
+```
+
+### OptionalUndefined
+
+>实现`util`类型`OptionalUndefined<T, Props>`，它将`T`中所有可以未定义的属性转换为可选属性。此外，可以传递第二个可选的泛型`Props`来限制可以修改的属性。
+
+```ts
+// ---------test case------------
+type test1 = OptionalUndefined<{ value: string | undefined }, "value">; // { value?: string | undefined }
+type test2 = OptionalUndefined<{ value: string; desc: string }, "value">; // { value: string; desc: string }
+type test3 = OptionalUndefined<
+  { value: string | undefined; desc: string },
+  "value"
+>; // { value?: string; desc: string }
+type test4 = OptionalUndefined<
+  { value: string | undefined; desc: string | undefined },
+  "value"
+>; // { value?: string | undefined; desc: string | undefined }
+type test5 = OptionalUndefined<
+  { value: string | undefined; desc: string },
+  "value" | "desc"
+>; // { value?: string; desc: string }
+type test6 = OptionalUndefined<{
+  value: string | undefined;
+  desc: string | undefined;
+}>; // { value?: string; desc?: string }
+type test7 = OptionalUndefined<{ value?: string }, "value">; // { value?: string }
+type test8 = OptionalUndefined<{ value?: string }>; // { value?: string }
+
+
+// ------------code---------------
+// Omit<x, never>相当于把x原封不动的复制一份
+type OptionalUndefined<T, Props extends keyof T = keyof T> = Omit<
+  {
+    // 排除Props中的属性名
+    [K in Exclude<keyof T, Props>]: T[K];
+  } & {
+    // 如果T[K]包含undefined类型，给K添加可选属性修饰符
+    [K in Props as undefined extends T[K] ? K : never]?: T[K];
+  } & {
+    [K in Props as undefined extends T[K] ? never : K]: T[K];
+  },
+  never
+>;
+
+
+// 另一种解法
+type OptionalUndefined<
+  T,
+  Props extends keyof T = keyof T,
+  // Props extends keyof T触发分布式条件类型
+  OptionalProps extends keyof T = Props extends keyof T
+    // 排除Props中不包含undefined类型的属性名
+    ? undefined extends T[Props]
+      ? Props
+      : never
+    : never
+> = Omit<
+  {
+    [K in OptionalProps]?: T[K];
+  } & {
+    [K in Exclude<keyof T, OptionalProps>]: T[K];
+  },
+  never
+>;
+```
 
 
 
