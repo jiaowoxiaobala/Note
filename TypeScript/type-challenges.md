@@ -2897,8 +2897,49 @@ type OptionalUndefined<
 >;
 ```
 
+## extreme
+
+### Get Readonly Keys 
+
+>实现泛型`GetReadonlyKeys<T>`，`GetReadonlyKeys<T>`返回由对象`T`所有只读属性的键组成的联合类型。
+
+```ts
+// ---------test case------------
+interface Todo1 {
+  readonly title: string;
+  description: string;
+  completed: boolean;
+}
+
+interface Todo2 {
+  readonly title: string;
+  readonly description: string;
+  completed?: boolean;
+}
+
+type test1 = GetReadonlyKeys<Todo1>; // 'title'
+type test2 = GetReadonlyKeys<Todo2>; // 'title' | 'description'
 
 
+// ------------code---------------
+type IsEqual<A, B> = (<X>() => X extends A ? 1 : 2) extends <X>() => X extends B
+  ? 1
+  : 2
+  ? true
+  : false;
+
+type GetReadonlyKeys<T> = keyof {
+  // 遍历T的所有属性
+  [K in keyof T as IsEqual<
+    // 比较原属性和去除修饰符后的属性是否相等
+    { -readonly [P in K]: T[P] },
+    { [P in K]: T[P] }
+  > extends true
+    ? never
+    // 如果不相等，返回属性名（只读属性）
+    : K]: K;
+};
+```
 
 
 未完待续...

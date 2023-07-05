@@ -754,6 +754,161 @@ const useResetState = <S>(
 ```
 
 ## Effect
+
+### useUpdateEffect
+
+>`useUpdateEffect`用法等同于`useEffect`，但是会忽略首次执行，只在依赖更新时执行。
+
+```ts
+import { useEffect } from 'react';
+import { createUpdateEffect } from '../createUpdateEffect';
+
+// 通过createUpdateEffect工厂函数创建
+export default createUpdateEffect(useEffect);
+
+
+// createUpdateEffect.ts
+import { useRef } from 'react';
+import type { useEffect, useLayoutEffect } from 'react';
+
+type EffectHookType = typeof useEffect | typeof useLayoutEffect;
+
+// 接收useEffect或者useLayoutEffect
+export const createUpdateEffect: (hook: EffectHookType) => EffectHookType =
+  (hook) => (effect, deps) => {
+    const isMounted = useRef(false);
+
+    // for react-refresh
+    // 组件卸载后，修改isMounted
+    // 比如有这样一个场景：show && <Child/>，show的状态决定是否渲染组件，当show从true转为false时，需要修改isMounted
+    hook(() => {
+      return () => {
+        isMounted.current = false;
+      };
+    }, []);
+
+    hook(() => {
+      if (!isMounted.current) {
+        isMounted.current = true;
+      } else {
+        // 这里返回effect调用的返回值（清除副作用
+        return effect();
+      }
+    }, deps);
+  };
+```
+
+### useUpdateLayoutEffect
+
+>`useUpdateLayoutEffect`用法等同于 `useLayoutEffect`，但是会忽略首次执行，只在依赖更新时执行。
+
+```ts
+import { useLayoutEffect } from 'react';
+import { createUpdateEffect } from '../createUpdateEffect';
+
+// 通过createUpdateEffect工厂函数创建
+export default createUpdateEffect(useLayoutEffect);
+```
+
+### useAsyncEffect
+
+>`useEffect`支持异步函数。
+
+```ts
+import type { DependencyList } from 'react';
+import { useEffect } from 'react';
+import { isFunction } from '../utils';
+
+// 判断是否是异步生成器函数
+// function* gen() {
+function isAsyncGenerator(
+  val: AsyncGenerator<void, void, void> | Promise<void>,
+): val is AsyncGenerator<void, void, void> {
+
+  // Symbol.asyncIterator指定了一个对象的默认异步迭代器
+  return isFunction(val[Symbol.asyncIterator]);
+}
+
+/**
+ * 默认的effect不支持传入异步函数
+ * useEffect(async () => {}, []） X
+ * 
+ * 如果需要在useEffect中使用异步函数
+ * useEffect(() => {
+ *  async function fn() {
+ *  }
+ * 
+ *  await fn();
+ * }, [])
+ */
+
+function useAsyncEffect(
+  effect: () => AsyncGenerator<void, void, void> | Promise<void>,
+  deps?: DependencyList,
+) {
+  // 思路其实是包裹了一层，在useEffect中执行异步函数，而不是传入useEffec的副作用函数就是异步函数
+  useEffect(() => {
+    const e = effect();
+    let cancelled = false;
+    async function execute() {
+      if (isAsyncGenerator(e)) {
+        // 自动迭代
+        while (true) {
+          const result = await e.next();
+          // 迭代完成 || 取消迭代
+          if (result.done || cancelled) {
+            break;
+          }
+        }
+      } else {
+        await e;
+      }
+    }
+    execute();
+
+    // 清除副作用（取消迭代
+    return () => {
+      cancelled = true;
+    };
+  }, deps);
+}
+```
+
+### useDebounceEffect
+
+>为`useEffect`增加防抖的能力。
+
+```ts
+import { useEffect, useState } from 'react';
+import type { DependencyList, EffectCallback } from 'react';
+import type { DebounceOptions } from '../useDebounce/debounceOptions';
+import useDebounceFn from '../useDebounceFn';
+// 会忽略首次执行，只在依赖更新时执行副作用
+import useUpdateEffect from '../useUpdateEffect';
+
+function useDebounceEffect(
+  effect: EffectCallback,
+  deps?: DependencyList,
+  options?: DebounceOptions,
+) {
+  const [flag, setFlag] = useState({});
+
+  // 给这个flag状态更新加上防抖
+  const { run } = useDebounceFn(() => {
+    // 这里很巧妙，每次都给到一个新的空对象，这样就能保证每次都是不同的值（引用不同）
+    setFlag({});
+  }, options);
+
+  // 追踪依赖变化，更新flag状态
+  useEffect(() => {
+    return run();
+  }, deps);
+
+  // flag更新后，执行efffect
+  // 通过值的防抖更新，再把这个值给到副作用执行的依赖项，就实现了防抖的副作用执行
+  useUpdateEffect(effect, [flag]);
+}
+```
 ### useDebounceFn
 
 >用来处理防抖函数的`Hook`。
@@ -882,6 +1037,351 @@ function useThrottleFn<T extends noop>(fn: T, options?: ThrottleOptions) {
     cancel: throttled.cancel,
     flush: throttled.flush,
   };
+}
+```
+
+### useThrottleEffect
+
+>为`useEffect`增加节流的能力。
+
+```ts
+import { useEffect, useState } from 'react';
+import type { DependencyList, EffectCallback } from 'react';
+import type { ThrottleOptions } from '../useThrottle/throttleOptions';
+import useThrottleFn from '../useThrottleFn';
+import useUpdateEffect from '../useUpdateEffect';
+
+function useThrottleEffect(
+  effect: EffectCallback,
+  deps?: DependencyList,
+  options?: ThrottleOptions,
+) {
+  const [flag, setFlag] = useState({});
+
+  // 给这个flag状态更新加上节流
+  const { run } = useThrottleFn(() => {
+
+    // 每次都给到一个新的空对象，这样就能保证每次都是不同的值（引用不同）
+    setFlag({});
+  }, options);
+
+  // 追踪依赖变化，更新flag状态
+  useEffect(() => {
+    return run();
+  }, deps);
+
+  // flag更新后，执行efffect
+  // 通过值的节流更新，再把这个值给到副作用执行的依赖项，就实现了节流的副作用执行
+  useUpdateEffect(effect, [flag]);
+}
+```
+
+### useDeepCompareEffect
+
+>用法与`useEffect`一致，但`deps`通过`lodash isEqual`进行深比较。
+
+```ts
+import { useEffect } from 'react';
+import { createDeepCompareEffect } from '../createDeepCompareEffect';
+
+// 通过createDeepCompareEffect工厂函数创建
+export default createDeepCompareEffect(useEffect);
+
+
+// createDeepCompareEffect.ts
+import { useRef } from 'react';
+import type { DependencyList, useEffect, useLayoutEffect } from 'react';
+
+// depsEqual = (aDeps: DependencyList = [], bDeps: DependencyList = []) => isEqual(aDeps, bDeps);
+// 依赖lodash的isEqual方法
+import { depsEqual } from '../utils/depsEqual';
+
+type EffectHookType = typeof useEffect | typeof useLayoutEffect;
+type CreateUpdateEffect = (hook: EffectHookType) => EffectHookType;
+
+export const createDeepCompareEffect: CreateUpdateEffect = (hook) => (effect, deps) => {
+  // ref存储传入的依赖项
+  const ref = useRef<DependencyList>();
+  const signalRef = useRef<number>(0);
+
+  // 每次都（深度）比较依赖项是否相同，不同则更新signalRef
+  // 如果依赖项中的值是引用类型，即使引用不同，但是值相同，也不会触发副作用的执行
+  if (deps === undefined || !depsEqual(deps, ref.current)) {
+    ref.current = deps;
+    signalRef.current += 1;
+  }
+
+  // signalRef的更新触发副作用的执行
+  hook(effect, [signalRef.current]);
+};
+```
+
+### useDeepCompareLayoutEffect
+
+>用法与`useLayoutEffect`一致，但`deps`通过`lodash isEqual`进行深比较。
+
+```ts
+import { useLayoutEffect } from 'react';
+import { createDeepCompareEffect } from '../createDeepCompareEffect';
+
+// 通过createDeepCompareEffect工厂函数创建
+export default createDeepCompareEffect(useLayoutEffect);
+```
+
+### useInterval
+
+>一个可以处理`setInterval`的`Hook`。
+
+```ts
+import { useCallback, useEffect, useRef } from 'react';
+import useMemoizedFn from '../useMemoizedFn';
+
+// const isNumber = (value: unknown): value is number => typeof value === 'number';
+import { isNumber } from '../utils';
+
+const useInterval = (fn: () => void, delay?: number, options: { immediate?: boolean } = {}) => {
+  const timerCallback = useMemoizedFn(fn);
+  const timerRef = useRef<NodeJS.Timer | null>(null);
+
+  // 清除计时器
+  const clear = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+  }, []);
+
+  useEffect(() => {
+    // 边界处理，delay必须是数字，且大于0
+    if (!isNumber(delay) || delay < 0) {
+      return;
+    }
+
+    // 立即执行
+    if (options.immediate) {
+      timerCallback();
+    }
+    timerRef.current = setInterval(timerCallback, delay);
+    return clear;
+  }, [delay, options.immediate]);
+
+  return clear;
+};
+```
+
+### useRafInterval
+
+>用`requestAnimationFrame`模拟实现`setInterval`，API和`useInterval`保持一致，好处是可以在页面不渲染的时候停止执行定时器，比如页面隐藏或最小化等。(Node环境下`requestAnimationFrame`会自动降级到`setInterval`)
+
+请注意，如下两种情况下很可能是不适用的，优先考虑 `useInterval` ：
+
+- 时间间隔小于 `16ms`
+- 希望页面不渲染的情况下依然执行定时器
+
+```ts
+import { useCallback, useEffect, useRef } from 'react';
+import useLatest from '../useLatest';
+import { isNumber } from '../utils';
+
+interface Handle {
+  id: number | NodeJS.Timer;
+}
+
+const setRafInterval = function (callback: () => void, delay: number = 0): Handle {
+  if (typeof requestAnimationFrame === typeof undefined) {
+    return {
+      id: setInterval(callback, delay),
+    };
+  }
+
+  // 记录开始时间
+  let start = new Date().getTime();
+  const handle: Handle = {
+    id: 0,
+  };
+  const loop = () => {
+    const current = new Date().getTime();
+    // 判断当前时间与开始时间的差值是否大于等于delay，如果是则执行回调
+    if (current - start >= delay) {
+      callback();
+
+      // 更新开始时间
+      start = new Date().getTime();
+    }
+    // 递归调用loop
+    handle.id = requestAnimationFrame(loop);
+  };
+  handle.id = requestAnimationFrame(loop);
+  return handle;
+};
+
+// 判断当前环境是否不存在cancelAnimationFrame
+function cancelAnimationFrameIsNotDefined(t: any): t is NodeJS.Timer {
+  return typeof cancelAnimationFrame === typeof undefined;
+}
+
+// 根据环境选择清除对应api
+const clearRafInterval = function (handle: Handle) {
+  if (cancelAnimationFrameIsNotDefined(handle.id)) {
+    return clearInterval(handle.id);
+  }
+  cancelAnimationFrame(handle.id);
+};
+
+function useRafInterval(
+  fn: () => void,
+  delay: number | undefined,
+  options?: {
+    immediate?: boolean;
+  },
+) {
+  const immediate = options?.immediate;
+
+  const fnRef = useLatest(fn);
+  const timerRef = useRef<Handle>();
+
+  useEffect(() => {
+    // 边界处理，delay必须是数字，且大于0
+    if (!isNumber(delay) || delay < 0) return;
+
+    // 立即执行
+    if (immediate) {
+      fnRef.current();
+    }
+    timerRef.current = setRafInterval(() => {
+      fnRef.current();
+    }, delay);
+
+    return () => {
+      if (timerRef.current) {
+        clearRafInterval(timerRef.current);
+      }
+    };
+  }, [delay]);
+
+  // 暴露清除计时器的方法（给到用户
+  const clear = useCallback(() => {
+    if (timerRef.current) {
+      clearRafInterval(timerRef.current);
+    }
+  }, []);
+
+  return clear;
+}
+```
+
+### useTimeout
+
+>一个可以处理`setTimeout`计时器函数的`Hook`。
+
+```ts
+import { useCallback, useEffect, useRef } from 'react';
+import useMemoizedFn from '../useMemoizedFn';
+import { isNumber } from '../utils';
+
+const useTimeout = (fn: () => void, delay?: number) => {
+  const timerCallback = useMemoizedFn(fn);
+  // 存储定时器id
+  const timerRef = useRef<NodeJS.Timer | null>(null);
+
+  // 清除函数
+  const clear = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
+  }, []);
+
+  useEffect(() => {
+    // 边界处理，delay必须是数字，且大于0
+    if (!isNumber(delay) || delay < 0) {
+      return;
+    }
+    timerRef.current = setTimeout(timerCallback, delay);
+    return clear;
+  }, [delay]);
+
+  return clear;
+};
+```
+
+### useRafTimeout
+
+>用 `requestAnimationFrame` 模拟实现 `setTimeout`，API 和 `useTimeout` 保持一致，好处是可以在页面不渲染的时候不触发函数执行，比如页面隐藏或最小化等。(Node 环境下 `requestAnimationFrame` 会自动降级到 `setTimeout`)
+
+```ts
+import { useCallback, useEffect, useRef } from 'react';
+import useLatest from '../useLatest';
+import { isNumber } from '../utils';
+
+interface Handle {
+  id: number | NodeJS.Timeout;
+}
+
+const setRafTimeout = function (callback: () => void, delay: number = 0): Handle {
+  // 环境兼容处理
+  if (typeof requestAnimationFrame === typeof undefined) {
+    return {
+      id: setTimeout(callback, delay),
+    };
+  }
+
+  const handle: Handle = {
+    id: 0,
+  };
+
+  // 开始时间
+  const startTime = new Date().getTime();
+
+  const loop = () => {
+    const current = new Date().getTime();
+    // 和useRafInterval不同的是这里
+    // 判断当前时间与开始时间的差值是否大于等于delay，如果是则执行回调
+    if (current - startTime >= delay) {
+      callback();
+    } else {
+      // 否则递归调用loop
+      handle.id = requestAnimationFrame(loop);
+    }
+  };
+  handle.id = requestAnimationFrame(loop);
+  return handle;
+};
+
+function cancelAnimationFrameIsNotDefined(t: any): t is NodeJS.Timer {
+  return typeof cancelAnimationFrame === typeof undefined;
+}
+
+const clearRafTimeout = function (handle: Handle) {
+  if (cancelAnimationFrameIsNotDefined(handle.id)) {
+    return clearTimeout(handle.id);
+  }
+  cancelAnimationFrame(handle.id);
+};
+
+function useRafTimeout(fn: () => void, delay: number | undefined) {
+  const fnRef = useLatest(fn);
+  const timerRef = useRef<Handle>();
+
+  useEffect(() => {
+    // 边界处理，delay必须是数字，且大于0
+    if (!isNumber(delay) || delay < 0) return;
+    timerRef.current = setRafTimeout(() => {
+      fnRef.current();
+    }, delay);
+    return () => {
+      if (timerRef.current) {
+        clearRafTimeout(timerRef.current);
+      }
+    };
+  }, [delay]);
+
+  // 清除函数
+  const clear = useCallback(() => {
+    if (timerRef.current) {
+      clearRafTimeout(timerRef.current);
+    }
+  }, []);
+
+  return clear;
 }
 ```
 
