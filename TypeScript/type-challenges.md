@@ -1857,7 +1857,7 @@ type PublicType<T extends object> = {
 todo
 ```
 
-### Currying
+### Currying 1
 
 >柯里化 是一种将带有多个参数的函数转换为每个带有一个参数的函数序列的技术。
 
@@ -2941,5 +2941,278 @@ type GetReadonlyKeys<T> = keyof {
 };
 ```
 
+### Query String Parser
+
+>实现类型级解析器来将`URL`查询字符串解析为对象文字类型。
+
+
+```ts
+// ---------test case------------
+type test1 = ParseQueryString<"">; // {}
+type test2 = ParseQueryString<"k1">; // { k1: true }
+type test3 = ParseQueryString<"k1&k1">; // { k1: true }
+type test4 = ParseQueryString<"k1&k2">; // { k1: true; k2: true }
+type test5 = ParseQueryString<"k1=v1">; // { k1: 'v1' }
+type test6 = ParseQueryString<"k1=v1&k1=v2">; // { k1: ['v1', 'v2'] }
+type test7 = ParseQueryString<"k1=v1&k2=v2">; // { k1: 'v1'; k2: 'v2' }
+type test8 = ParseQueryString<"k1=v1&k2=v2&k1=v2">; // { k1: ['v1', 'v2']; k2: 'v2' }
+type test9 = ParseQueryString<"k1=v1&k2">; // { k1: 'v1'; k2: true }
+type test10 = ParseQueryString<"k1=v1&k1=v1">; // { k1: 'v1' }
+type test11 = ParseQueryString<"k1=v1&k1=v2&k1=v1">; // { k1: ['v1', 'v2'] }
+type test12 = ParseQueryString<"k1=v1&k2=v1&k1=v2&k1=v1">; // { k1: ['v1', 'v2']; k2: 'v1' }
+type test13 = ParseQueryString<"k1=v1&k2=v2&k1=v2&k1=v3">; // { k1: ['v1', 'v2', 'v3']; k2: 'v2' }
+type test14 = ParseQueryString<"k1=v1&k1">; // { k1: ['v1', true] }
+type test15 = ParseQueryString<"k1&k1=v1">; // { k1: [true, 'v1'] }
+
+
+// ------------code---------------
+type ArrayToString<T> = T extends unknown[]
+  ? T extends [infer F, ...infer R]
+    ? `${F & string}${ArrayToString<R>}`
+    : ""
+  : T;
+
+// 合并两个对象
+type Merge<O, T> = {
+  // 遍历它们所有的key
+  [K in keyof O | keyof T]: K extends keyof T
+    ? K extends keyof O
+      // 如果key在两个对象中都存在，判断O[K]的属性类型是否满足赋值给T[K]
+      // 假设O[K]为['v1', 'v2'] -> ArrayToString<O[K]>为'v1v2'
+      // 假设T[K]为'v1'，则'v1v2' extends  `${any}v1${any}` | 'v1'为true
+      // 因为排除了重复的类型添加进数组
+      ? ArrayToString<O[K]> extends `${any}${T[K] & string}${any}` | T[K]
+        ? O[K]
+        // 不满足则都添加进数组
+        : [
+            ...(O[K] extends any[] ? O[K] : [O[K]]),
+            ...(T[K] extends any[] ? T[K] : [T[K]])
+          ]
+      : T[K]
+    : K extends keyof O
+    ? O[K]
+    : never;
+};
+
+type ParseQueryString<
+  S extends string,
+  O extends Record<string, any> = {}
+  // 以&分割匹配前面的L和后面的R
+> = S extends `${infer L}&${infer R}`
+  ? ParseQueryString<
+      R,
+      Merge<
+        O,
+        // 用L以=分割匹配前面的LL和后面的LR
+        L extends `${infer LL}=${infer LR}`
+          ? { [K in LL]: LR }
+          : // 没匹配上，就以L作为属性名，类型为true
+            { [K in L]: true }
+      >
+    >
+  : // 如果不匹配&，就匹配=，以=分割匹配前面的LL和后面的LR
+    Merge<
+      O,
+      S extends `${infer LL}=${infer LR}`
+        ? { [K in LL]: LR }
+        : { [K in S as S extends "" ? never : K]: true }
+    >;
+```
+
+### Slice 
+
+>实现`Array.slice`的类型版本。
+
+```ts
+// ---------test case------------
+type Arr = [1, 2, 3, 4, 5];
+
+// basic
+type test1 = Slice<Arr, 0, 1>; // [1]
+type test2 = Slice<Arr, 0, 0>; // []
+type test3 = Slice<Arr, 2, 4>; // [3, 4]
+
+// optional args
+type test4 = Slice<[]>; // []
+type test5 = Slice<Arr>; // Arr
+type test6 = Slice<Arr, 0>; // Arr
+type test7 = Slice<Arr, 2>; // [3, 4, 5]
+
+// negative index
+type test8 = Slice<Arr, 0, -1>; // [1, 2, 3, 4]
+type test9 = Slice<Arr, -3, -1>; // [3, 4]
+
+// invalid
+type test10 = Slice<Arr, 10>; // []
+type test11 = Slice<Arr, 1, 0>; // []
+type test12 = Slice<Arr, 10, 20>; // []
+
+
+// ------------code---------------
+// 构建数组
+type NewArray<N extends number, T extends 1[] = []> = T["length"] extends N
+  ? T
+  : NewArray<N, [...T, 1]>;
+
+// 两数相减
+type Sub<A extends number, B extends number> = NewArray<A> extends [
+  ...NewArray<B>,
+  ...infer R
+]
+  ? R["length"]
+  : never;
+
+// 把负数索引转为正数索引
+type GetIndex<
+  I extends number,
+  T extends unknown[]
+  // 匹配出负号，等到正数，然后用数组长度减去这个正数，即为负数索引对应的正数索引
+> = `${I}` extends `-${infer N extends number}` ? Sub<T["length"], N> : I;
+
+type Slice<
+  Arr extends unknown[],
+  Start extends number = 0,
+  End extends number = Arr["length"],
+  // S: 起始索引（通过转换后的
+  S extends number = GetIndex<Start, Arr>,
+  // E: 结束索引（通过转换后的
+  E extends number = GetIndex<End, Arr>,
+  // 计数
+  Count extends 1[] = [],
+  // 切割后的数组
+  Res extends unknown[] = [],
+  // 是否开始往结果数组里放入元素
+  Flag extends boolean = Count["length"] extends S ? true : false
+  // 如果到了结束索引，就返回结果
+> = Count["length"] extends E
+  ? Res
+  : Arr extends [infer F, ...infer R]
+  // 判断Flag是否满足true，如果满足，就把当前元素放入结果数组
+  ? Flag extends true
+    ? Slice<R, Start, End, S, E, [...Count, 1], [...Res, F], Flag>
+    : Slice<
+        R,
+        Start,
+        End,
+        S,
+        E,
+        [...Count, 1],
+        // 改变flag时也要追加一次结果数组
+        Count["length"] extends S ? [...Res, F] : Res,
+        Count["length"] extends S ? true : false
+      >
+  : Res;
+
+// 另一种解法
+// 处理负数索引
+type ToPositive<
+  N extends number,
+  Arr extends unknown[]
+  // 假设N为-1，Arr为[1, 2, 3]，则P为1，Slice<[1, 2, 3], 1> -> Slice<Arr, 1, 3> -> [2, 3]
+> = `${N}` extends `-${infer P extends number}` ? Slice<Arr, P>["length"] : N;
+
+// 获取Arr的前N个元素
+type InitialN<
+  Arr extends unknown[],
+  N extends number,
+  Res extends unknown[] = []
+> = Res["length"] extends N | Arr["length"]
+  ? Res
+  : InitialN<Arr, N, [...Res, Arr[Res["length"]]]>;
+
+type Slice<
+  Arr extends unknown[],
+  Start extends number = 0,
+  End extends number = Arr["length"]
+  // 获取到Arr的前Start个元素，再获取到Arr的前End个元素做匹配
+> = InitialN<Arr, ToPositive<End, Arr>> extends [
+  ...InitialN<Arr, ToPositive<Start, Arr>>,
+  ...infer Rest
+]
+  // 取出两者差集
+  ? Rest
+  : [];
+```
+
+### Currying 2
+
+>实现动态参数化的柯里化函数的类型版本。
+
+
+```ts
+// ---------test case------------
+const curried1 = DynamicParamsCurrying(
+  (a: string, b: number, c: boolean) => true
+);
+const curried2 = DynamicParamsCurrying(
+  (
+    a: string,
+    b: number,
+    c: boolean,
+    d: boolean,
+    e: boolean,
+    f: string,
+    g: boolean
+  ) => true
+);
+
+const curried1Return1 = curried1("123")(123)(true);
+const curried1Return2 = curried1("123", 123)(false);
+const curried1Return3 = curried1("123", 123, true);
+
+const curried2Return1 = curried2("123")(123)(true)(false)(true)("123")(false);
+const curried2Return2 = curried2("123", 123)(true, false)(true, "123")(false);
+const curried2Return3 = curried2("123", 123)(true)(false)(true, "123", false);
+const curried2Return4 = curried2("123", 123, true)(false, true, "123")(false);
+const curried2Return5 = curried2("123", 123, true)(false)(true)("123")(false);
+const curried2Return6 = curried2("123", 123, true, false)(true, "123", false);
+const curried2Return7 = curried2("123", 123, true, false, true)("123", false);
+const curried2Return8 = curried2("123", 123, true, false, true)("123")(false);
+const curried2Return9 = curried2("123", 123, true, false, true, "123")(false);
+const curried2Return10 = curried2("123", 123, true, false, true, "123", false);
+
+type test1 = typeof curried1Return1; // boolean
+type test2 = typeof curried1Return2; // boolean
+type test3 = typeof curried1Return3; // boolean
+type test4 = typeof curried2Return1; // boolean
+type test5 = typeof curried2Return2; // boolean
+type test6 = typeof curried2Return3; // boolean
+type test7 = typeof curried2Return4; // boolean
+type test8 = typeof curried2Return5; // boolean
+type test9 = typeof curried2Return6; // boolean
+type test10 = typeof curried2Return7; // boolean
+type test11 = typeof curried2Return8; // boolean
+type test12 = typeof curried2Return9; // boolean
+type test13 = typeof curried2Return10; // boolean
+
+
+// ------------code---------------
+declare function DynamicParamsCurrying<A extends unknown[], R>(
+  fn: (...args: A) => R
+): Curry<A, R>;
+
+// 利用泛型推导推出Args的类型
+type Curry<A extends unknown[], R> = <Args extends unknown[]>(
+  ...args: Args
+  // 匹配出剩余的参数
+) => A extends [...Args, ...infer Rest]
+  ? Rest["length"] extends 0
+    ? R
+    // 如果存在剩余参数，继续递归
+    : Curry<Rest, R>
+  : never;
+```
+
+### Sum 
+
+```ts
+todo
+```
+
+### Multiply 
+
+```ts
+todo
+```
 
 未完待续...

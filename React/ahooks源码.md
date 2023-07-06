@@ -2,6 +2,33 @@
 
 
 ## LifeCycle
+
+### useMount
+
+>只在组件初始化时执行的`Hook`。
+
+```ts
+import { useEffect } from 'react';
+import { isFunction } from '../utils';
+import isDev from '../utils/isDev';
+
+// 模拟componentDidMount生命周期
+const useMount = (fn: () => void) => {
+  // 校验传参
+  if (isDev) {
+    if (!isFunction(fn)) {
+      console.error(
+        `useMount: parameter \`fn\` expected to be a function, but got "${typeof fn}".`,
+      );
+    }
+  }
+
+  // useEffect的依赖项为空数组时，只会在组件挂载时执行一次
+  useEffect(() => {
+    fn?.();
+  }, []);
+};
+```
 ### useUnmount
 
 >在组件卸载`（unmount）`时执行的`Hook`。
@@ -195,7 +222,6 @@ function useToggle<D, R>(defaultValue: D = false as unknown as D, reverseValue?:
 ### useUrlState
 
 ```ts
-todo
 ```
 
 ### useCookieState
@@ -1383,6 +1409,226 @@ function useRafTimeout(fn: () => void, delay: number | undefined) {
 
   return clear;
 }
+```
+
+### useLockFn
+
+>用于给一个异步函数增加竞态锁，防止并发执行。
+
+```ts
+import { useRef, useCallback } from 'react';
+
+function useLockFn<P extends any[] = any[], V extends any = any>(fn: (...args: P) => Promise<V>) {
+  // 防重复触发标识
+  const lockRef = useRef(false);
+
+  return useCallback(
+    async (...args: P) => {
+      // 拦截重复触发
+      if (lockRef.current) return;
+      lockRef.current = true;
+      try {
+        const ret = await fn(...args);
+
+        // 异步函数执行完毕后，lockRef.current 置为 false，表示fn可以进行下一次执行
+        lockRef.current = false;
+        return ret;
+      } catch (e) {
+        // 执行报错后，更新标识
+        lockRef.current = false;
+        throw e;
+      }
+
+      // finally {
+      //   lockRef.current = false;
+      // }
+    },
+    [fn],
+  );
+}
+```
+
+### useUpdate
+
+>`useUpdate`会返回一个函数，调用该函数会强制组件重新渲染。
+
+```ts
+import { useCallback, useState } from 'react';
+
+const useUpdate = () => {
+  // 通过useState返回的setState方法
+  const [, setState] = useState({});
+
+  // 每次更新为一个新的空对象（引用地址不同），从而触发组件更新
+  return useCallback(() => setState({}), []);
+};
+```
+
+## DOM
+
+### useEventListener
+
+>优雅地使用`addEventListener`。
+
+```ts
+import useLatest from '../useLatest';
+import type { BasicTarget } from '../utils/domTarget';
+import { getTargetElement } from '../utils/domTarget';
+import useEffectWithTarget from '../utils/useEffectWithTarget';
+
+type noop = (...p: any) => void;
+
+export type Target = BasicTarget<HTMLElement | Element | Window | Document>;
+
+type Options<T extends Target = Target> = {
+  target?: T;
+  capture?: boolean;
+  once?: boolean;
+  passive?: boolean;
+};
+
+// 函数重载，根据参数的类型和数量为函数提供不同的类型定义
+function useEventListener<K extends keyof HTMLElementEventMap>(
+  eventName: K,
+  handler: (ev: HTMLElementEventMap[K]) => void,
+  options?: Options<HTMLElement>,
+): void;
+function useEventListener<K extends keyof ElementEventMap>(
+  eventName: K,
+  handler: (ev: ElementEventMap[K]) => void,
+  options?: Options<Element>,
+): void;
+function useEventListener<K extends keyof DocumentEventMap>(
+  eventName: K,
+  handler: (ev: DocumentEventMap[K]) => void,
+  options?: Options<Document>,
+): void;
+function useEventListener<K extends keyof WindowEventMap>(
+  eventName: K,
+  handler: (ev: WindowEventMap[K]) => void,
+  options?: Options<Window>,
+): void;
+function useEventListener(eventName: string, handler: noop, options: Options): void;
+
+function useEventListener(eventName: string, handler: noop, options: Options = {}) {
+  const handlerRef = useLatest(handler);
+
+  // useEffectWithTarget = createEffectWithTarget(useEffect);
+  useEffectWithTarget(
+    () => {
+      // 获取目标元素
+      const targetElement = getTargetElement(options.target, window);
+      // 边界处理，目标元素不存在或者不支持addEventListener方法
+      if (!targetElement?.addEventListener) {
+        return;
+      }
+
+      // 事件处理函数
+      const eventListener = (event: Event) => {
+        return handlerRef.current(event);
+      };
+
+      // 添加事件监听
+      targetElement.addEventListener(eventName, eventListener, {
+        // 一个布尔值，表示 eventListener 会在该类型的事件捕获阶段传播到该 EventTarget 时触发。
+        capture: options.capture,
+
+        // 表示 eventListener 在添加之后最多只调用一次。如果为 true，eventListener 会在其被调用之后自动移除
+        once: options.once,
+        // 一个布尔值，设置为 true 时，表示 eventListener 永远不会调用 preventDefault()
+        passive: options.passive,
+      });
+
+      // 清除副作用（移除事件监听
+      return () => {
+        targetElement.removeEventListener(eventName, eventListener, {
+          capture: options.capture,
+        });
+      };
+    },
+
+    // 依赖项数组和目标元素改变都会重新执行传入的回调函数
+    [eventName, options.capture, options.once, options.passive],
+    options.target,
+  );
+}
+
+
+// createEffectWithTarget.ts
+import type { DependencyList, EffectCallback, useEffect, useLayoutEffect } from 'react';
+import { useRef } from 'react';
+import useUnmount from '../useUnmount';
+import depsAreSame from './depsAreSame';
+import type { BasicTarget } from './domTarget';
+import { getTargetElement } from './domTarget';
+
+const createEffectWithTarget = (useEffectType: typeof useEffect | typeof useLayoutEffect) => {
+  /**
+   *
+   * @param effect
+   * @param deps
+   * @param target target should compare ref.current vs ref.current, dom vs dom, ()=>dom vs ()=>dom
+   */
+  const useEffectWithTarget = (
+    effect: EffectCallback,
+    deps: DependencyList,
+    target: BasicTarget<any> | BasicTarget<any>[],
+  ) => {
+    // 是否初始化了
+    const hasInitRef = useRef(false);
+
+    const lastElementRef = useRef<(Element | null)[]>([]);
+    const lastDepsRef = useRef<DependencyList>([]);
+
+    // 保存清除副作用回调
+    const unLoadRef = useRef<any>();
+
+    // 没传入依赖项数组，所以组件每次更新都会执行（手动控制
+    useEffectType(() => {
+      const targets = Array.isArray(target) ? target : [target];
+      const els = targets.map((item) => getTargetElement(item));
+
+      // 初始执行一次
+      if (!hasInitRef.current) {
+        hasInitRef.current = true;
+
+        // 目标元素数组
+        lastElementRef.current = els;
+
+        // 依赖项
+        lastDepsRef.current = deps;
+
+        // 执行副作用函数
+        unLoadRef.current = effect();
+        return;
+      }
+
+      // 依赖项或者有目标元素发生变化，重新执行
+      if (
+        els.length !== lastElementRef.current.length ||
+
+        // depsAreSame：遍历每一项通过Object.is比较是否相等
+        !depsAreSame(els, lastElementRef.current) ||
+        !depsAreSame(deps, lastDepsRef.current)
+      ) {
+        unLoadRef.current?.();
+
+        lastElementRef.current = els;
+        lastDepsRef.current = deps;
+        unLoadRef.current = effect();
+      }
+    });
+
+    useUnmount(() => {
+      unLoadRef.current?.();
+      // for react-refresh
+      // 组件重新渲染时，把hasInitRef.current 重置为 false
+      hasInitRef.current = false;
+    });
+  };
+
+  return useEffectWithTarget;
+};
 ```
 
 
