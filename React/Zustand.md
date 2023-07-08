@@ -230,3 +230,4 @@ export const setText = (text) => useBoundStore.setState({ text })
 ```
 
 ## [TypeScript Guide](https://docs.pmnd.rs/zustand/guides/typescript)
+
