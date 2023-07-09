@@ -296,3 +296,5 @@ export default function Counter() {
   );
 }
 ```
+
+## [Synchronizing with Effects](https://react.dev/learn/synchronizing-with-effects)
