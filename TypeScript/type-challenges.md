@@ -999,7 +999,7 @@ type IsTuple<T> = [T] extends [never]
 >`Chunk<T, N>`接受两个必需的类型参数，`T`必须是元组，`N`必须是>=1的整数。
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 
 type test1 = Chunk<[], 1>; // []
 type test2 = Chunk<[1, 2, 3], 1>; // [[1], [2], [3]]>>
@@ -1008,7 +1008,7 @@ type test4 = Chunk<[1, 2, 3, 4], 2>; // [[1, 2], [3, 4]]>>
 type test5 = Chunk<[1, 2, 3, 4], 5>; // [[1, 2, 3, 4]]>>
 type test6 = Chunk<[1, true, 2, false], 2>; // [[1, true], [2, false]]>>
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 
 type Chunk<
   T extends unknown[],
@@ -1104,7 +1104,7 @@ type Without<T, U> = T extends [infer R, ...infer F]
 >实现`Math.trunc`的类型版本，接收字符串或数字取整。
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 type test1 = Trunc<0.1>; // "0"
 type test2 = Trunc<1.234>; // "1"
 type test3 = Trunc<".3">; // "0"
@@ -1112,7 +1112,7 @@ type test4 = Trunc<"-10.234">; // "-10"
 type test5 = Trunc<10>; // "10"
 
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 // 先判断是否匹配以0. | .开头
 type Trunc<T extends string | number> = `${T}` extends `${"0." | "."}${string}`
   ? "0"
@@ -1218,12 +1218,12 @@ type Unique<T, U extends unknown[] = []> = T extends [infer F, ...infer R]
 >实现`MapTypes<T, R>`，它将对象`T`中的类型转换为类型`R`定义的不同类型。
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 type test1 = MapTypes<{ stringToArray: string }, { mapFrom: string; mapTo: [] }>; // { stringToArray: [] }
 type test2 = MapTypes<{ date: string }, { mapFrom: string; mapTo: Date | null }>; // { date: null | Date }
 type test3 = MapTypes<{ name: string; date: Date }, { mapFrom: string; mapTo: boolean } | { mapFrom: Date; mapTo: string }>; // { name: boolean; date: string }
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 
 // 思路：遍历T，判断T[K]是否满足mapForm，满足就转成mapTo
 type MapTypes<T extends Record<string, any>, R extends Record<'mapFrom' | 'mapTo', any>, U = R> = {
@@ -1324,12 +1324,12 @@ type Combs<T extends string[]> = T extends [
 >给定一个唯一元素的数组，返回所有可能的子序列。
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 type test1 = Subsequence<[1, 2]>; // [] | [1] | [2] | [1, 2]
 type test2 = Subsequence<[1, 2, 3]>; // [] | [1] | [2] | [1, 2] | [3] | [1, 3] | [2, 3] | [1, 2, 3]
 
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 // 假设T = [1, 2, 3]
 // [1, ...Subsequence<[2, 3]>] | Subsequence<[2, 3]>
 
@@ -1833,7 +1833,7 @@ type CheckRepeatedTuple<T extends unknown[]> = T extends [infer L, ...infer R]
 >从给定类型`T`中移除以开头的键。
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 type test1 = PublicType<{ a: number }>; // { a: number }
 type test2 = PublicType<{ _b: string | bigint }>; // {}
 type test3 = PublicType<{ readonly c?: number }>; // { readonly c?: number }
@@ -1842,7 +1842,7 @@ type test5 = PublicType<{ _f: () => bigint[] }>; // {}
 type test6 = PublicType<{ g: "_g" }>; // { g: "_g" }
 type test7 = PublicType<{ __h: number; i: unknown }>; // { i: unknown }
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 type PublicType<T extends object> = {
   // 匹配以_开头的模板字符
   [K in keyof T as K extends `_${any}` ? never : K]: T[K]
@@ -1853,8 +1853,67 @@ type PublicType<T extends object> = {
 
 ### Simple Vue
 
+>实现类似Vue的类型支持的简化版本。
+
 ```ts
-todo
+/* _____________ Test Cases _____________ */
+import type { Debug, Equal, Expect, IsAny } from "@type-challenges/utils";
+
+SimpleVue({
+  data() {
+    // @ts-expect-error
+    this.firstname;
+    // @ts-expect-error
+    this.getRandom();
+    // @ts-expect-error
+    this.data();
+
+    return {
+      firstname: "Type",
+      lastname: "Challenges",
+      amount: 10,
+    };
+  },
+  computed: {
+    fullname() {
+      return `${this.firstname} ${this.lastname}`;
+    },
+  },
+  methods: {
+    getRandom() {
+      return Math.random();
+    },
+    hi() {
+      alert(this.amount);
+      alert(this.fullname.toLowerCase());
+      alert(this.getRandom());
+    },
+    test() {
+      const fullname = this.fullname;
+      const cases: [Expect<Equal<typeof fullname, string>>] = [] as any;
+    },
+  },
+});
+
+
+/* _____________ Your Code Here _____________ */
+// D：data C: computed M: methods
+declare function SimpleVue<D, C, M>(options: Options<D, C, M>): any;
+
+// 获取计算属性的返回值类型
+type GetComputedValueType<C> = {
+  [P in keyof C]: C[P] extends () => infer R ? R : never;
+};
+
+type Options<D, C, M> = {
+  data: (this: void) => D;
+  // ThisType: 用于指定 this 的类型，不影响参数的类型
+  // 这里C & ThisType<D>的意思是，C中的this类型为D
+  computed: C & ThisType<D>;
+
+  // methods中的this要访问到data和computed中的属性以及其他methods
+  methods: M & ThisType<D & GetComputedValueType<C> & M>;
+};
 ```
 
 ### Currying 1
@@ -1913,11 +1972,11 @@ type T2 = Foo<{ a: string; b: number }>; // string | number
 >实现高级工具类型`GetRequired<T>`，该类型保留所有必需的属性
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 type test = GetRequired<{ foo: number; bar?: string }>; // { foo: number }>>,
 type test2 = GetRequired<{ foo: undefined; bar?: undefined }>; // { foo: undefined }>
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 // 思路：把T用Required包装后取对应的K，判读属性是否是必需
 type GetRequired<T extends object> = {
   [K in keyof T as T[K] extends Required<T>[K] ? K : never]: T[K];
@@ -1939,11 +1998,11 @@ type GetRequired<T extends object> = {
 
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 type test1 = GetOptional<{ foo: number; bar?: string }>; // { bar?: string }
 type test2 = GetOptional<{ foo: undefined; bar?: undefined }>; // { bar?: undefined }
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 // 思路：把T用Required包装后取对应的K，判读属性是否是必需
 type GetOptional<T extends object> = {
   [K in keyof T as T[K] extends Required<T>[K] ? never : K]: T[K];
@@ -2016,7 +2075,7 @@ type CapitalizeWords<S extends string> = Capitalize<CapitalizeRest<S>>;
 >实现`CamelCase<T>`，将`snake_case`类型的表示的字符串转换为`camelCase`的表示方式。
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 type test1 = CamelCase<"foobar">; // 'foobar'
 type test2 = CamelCase<"FOOBAR">; // 'foobar'
 type test3 = CamelCase<"foo_bar">; // 'fooBar'
@@ -2032,7 +2091,7 @@ type test12 = CamelCase<"">; // ''
 type test13 = CamelCase<"😎">; // '😎'
 
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 // 思路：以_做分割匹配三个部分，_前面的所有字符L，_后面的第一个字符F，F后面的所有字符R
 type CamelCase<S extends string> = S extends `${infer L}_${infer F}${infer R}`  
   ? Uppercase<F> extends Lowercase<F>
@@ -2049,7 +2108,7 @@ type CamelCase<S extends string> = S extends `${infer L}_${infer F}${infer R}`
 >这个挑战要求您解析输入字符串并提取格式占位符，如`%d`和`%f`。例如，如果输入字符串是`" the result is %d."`，那么解析的结果是一个元组`['dec']`。
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 type test1 = ParsePrintFormat<"">; // []>>
 type test2 = ParsePrintFormat<"Any string.">; // []>>
 type test3 = ParsePrintFormat<"The result is %d.">; // ['dec']>>
@@ -2062,7 +2121,7 @@ type test9 = ParsePrintFormat<"Hello %s: score is %d.">; // ['string', 'dec']>>
 type test10 = ParsePrintFormat<"The result is %">; // []>>
 
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 type ControlsMap = {
   c: "char";
   s: "string";
@@ -2086,8 +2145,107 @@ type ParsePrintFormat<S extends string> =
 
 ### Vue Basic Props
 
+>完善`Simple Vue`，追加`Props`类型。
+
 ```ts
-todo
+/* _____________ Test Cases _____________ */
+import type { Debug, Equal, Expect, IsAny } from "@type-challenges/utils";
+
+class ClassA {}
+
+VueBasicProps({
+  props: {
+    propA: {},
+    propB: { type: String },
+    propC: { type: Boolean },
+    propD: { type: ClassA },
+    propE: { type: [String, Number] },
+    propF: RegExp,
+  },
+  data(this) {
+    type PropsType = Debug<typeof this>;
+    type cases = [
+      Expect<IsAny<PropsType["propA"]>>,
+      Expect<Equal<PropsType["propB"], string>>,
+      Expect<Equal<PropsType["propC"], boolean>>,
+      Expect<Equal<PropsType["propD"], ClassA>>,
+      Expect<Equal<PropsType["propE"], string | number>>,
+      Expect<Equal<PropsType["propF"], RegExp>>
+    ];
+
+    // @ts-expect-error
+    this.firstname;
+    // @ts-expect-error
+    this.getRandom();
+    // @ts-expect-error
+    this.data();
+
+    return {
+      firstname: "Type",
+      lastname: "Challenges",
+      amount: 10,
+    };
+  },
+  computed: {
+    fullname() {
+      return `${this.firstname} ${this.lastname}`;
+    },
+  },
+  methods: {
+    getRandom() {
+      return Math.random();
+    },
+    hi() {
+      alert(this.fullname.toLowerCase());
+      alert(this.getRandom());
+    },
+    test() {
+      const fullname = this.fullname;
+      const propE = this.propE;
+      type cases = [
+        Expect<Equal<typeof fullname, string>>,
+        Expect<Equal<typeof propE, string | number>>
+      ];
+    },
+  },
+});
+
+
+/* _____________ Your Code Here _____________ */
+// 获取计算属性的返回值类型
+type GetComputedValueType<T> = {
+  [K in keyof T]: T[K] extends () => infer R ? R : T[K];
+};
+
+type GetPropType<T> = T extends unknown[]
+  // props传入的元组类型，取出成员的联合类型
+  ? GetPropType<T[number]>
+  // props传入的是函数，取出返回值的类型
+  : T extends (...args: any) => any
+  ? ReturnType<T>
+  // props传入的是构造函数，取出实例的类型
+  : T extends new (...args: any) => any
+  ? InstanceType<T>
+  : T;
+
+// 处理props类型
+type Props<T> = {
+  [K in keyof T]: T[K] extends Record<string, never>
+    ? any
+    : T[K] extends { type: infer R }
+    ? GetPropType<R>
+    : GetPropType<T[K]>;
+};
+
+interface Options<P, D, C, M> {
+  props: P;
+  data: (this: Props<P>) => D;
+  computed: C & ThisType<D & GetComputedValueType<C> & M & Props<P>>;
+  methods: M & ThisType<D & GetComputedValueType<C> & M & Props<P>>;
+}
+
+// P: props D：data C: computed M: methods
+declare function VueBasicProps<P, D, C, M>(options: Options<P, D, C, M>): any;
 ```
 
 ### IsAny
@@ -2111,7 +2269,7 @@ type test = IsAny<unknown> // true
 >`lodash`中的`get`函数用于访问`JavaScript`中嵌套值，实现一个类型版本。
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 type Data = {
   foo: {
     bar: {
@@ -2131,7 +2289,7 @@ type test4 = Get<Data, "foo.baz">; // false
 type test5 = Get<Data, "no.existed">; // never
 
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 // 递归出口 K extends keyof T -> T[K]
 type Get<T, K> = K extends keyof T
   ? T[K]
@@ -2164,14 +2322,14 @@ type Get<T, K> = K extends `${infer A}.${infer B}`
 >将字符串文字转换为数字，其行为类似于`number.parseint`。
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 type test1 = ToNumber<"0">; // 0
 type test2 = ToNumber<"5">; // 5
 type test3 = ToNumber<"12">; // 12
 type test4 = ToNumber<"27">; // 27
 type test5 = ToNumber<"18@7_$%">; // never
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 // 思路：通过构建长度相等的数组，不适应大数值和非纯数值
 type ToNumber<S extends string, N extends 1[] = []> = S extends `${N["length"]}`
   ? N["length"]
@@ -2188,7 +2346,7 @@ type ToNumber<S extends string> = S extends `${infer N extends number}`
 >实现类型`FilterOut<T, F>`，从元组`T`中过滤出给定类型`F`的项。
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 type test1 = FilterOut<[], never>; // []
 type test2 = FilterOut<[never], never>; // []
 type test3 = FilterOut<["a", never], never>; // ['a']
@@ -2203,7 +2361,7 @@ type test6 = FilterOut<
 >; // [number | null | undefined]
 
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 type FilterOut<T extends any[], F> = T extends [infer L, ...infer R]
   // 因为L有可能是联合类型，避免触发分布式条件类型
   ? [L] extends [F]
@@ -2218,7 +2376,7 @@ type FilterOut<T extends any[], F> = T extends [infer L, ...infer R]
 >实现一个类型把元组转成类似枚举的对象。
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 const OperatingSystem = ["macOS", "Windows", "Linux"] as const;
 type test1 = Enum<[]>; // {}
 type test2 = Enum<typeof OperatingSystem>;
@@ -2236,7 +2394,7 @@ type test3 = Enum<typeof OperatingSystem, true>;
 // }
 
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 // 获取元组的索引组成联合类型
 type TupleKeys<T extends readonly unknown[]> = T extends readonly [
   infer _,
@@ -2265,7 +2423,38 @@ type Enum<T extends readonly string[], N extends boolean = false> = {
 ### printf 
 
 ```ts
-todo
+/* _____________ Test Cases _____________ */
+type test1 = Format<"abc">; // string
+type test2 = Format<"a%sbc">; // (s1: string) => string
+type test3 = Format<"a%dbc">; // (d1: number) => string
+type test4 = Format<"a%%dbc">; // string
+type test5 = Format<"a%%%dbc">; // (d1: number) => string
+type test6 = Format<"a%dbc%s">; // (d1: number) => (s1: string) => string
+
+/* _____________ Your Code Here _____________ */
+// 以%号分割匹配
+type Format<T extends string> = T extends `${infer _}%${infer F}${infer R}`
+  // 匹配到的第一个字符F为类型
+  //  %s -> (s: string), %d -> (d: number)
+  ? F extends "s"
+    // 剩余字符R继续递归匹配
+    ? (s: string) => Format<R>
+    : F extends "d"
+    ? (d: number) => Format<R>
+    : Format<R>
+  : string;
+
+// 另一种解法：思路一样
+type MapDict = {
+  s: string;
+  d: number;
+};
+
+type Format<T extends string> = T extends `${string}%${infer M}${infer R}`
+  ? M extends keyof MapDict
+    ? (x: MapDict[M]) => Format<R>
+    : Format<R>
+  : string;
 ```
 
 ### DeepObjectToUniq
@@ -2309,7 +2498,7 @@ todo
 >实现`Camelize`类型: 将对象属性名从 蛇形命名(下划线命名) 转换为 小驼峰命名。
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 type test1 = Camelize<{
   some_prop: string;
   prop: { another_prop: string };
@@ -2330,7 +2519,7 @@ type test1 = Camelize<{
 // }
 
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 // 驼峰命名 some_prop -> someProp
 // 以_做分隔符，取出前后的字符，把后面的字符首字符转为大写后继续递归
 type CamelizeKey<T extends string> = T extends `${infer L}_${infer R}`
@@ -2355,10 +2544,10 @@ type Camelize<T> = T extends unknown[]
 >从字符串中删除指定的字符。
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 type test = DropString<'foobar!', 'fb'> // 'ooar!'
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 type StrToArr<
   S extends string,
   U extends string[] = []
@@ -2399,7 +2588,7 @@ type DropString<
 >`split()`方法通过查找分隔符将字符串拆分为子字符串数组，并返回新数组，实现类型版本的`split`。
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 type test1 = Split<"Hi! How are you?", "z">; // ['Hi! How are you?']
 type test2 = Split<"Hi! How are you?", " ">; // ['Hi!', 'How', 'are', 'you?']
 type test3 = Split<"Hi! How are you?", "">; // ['H', 'i', '!', ' ', 'H', 'o', 'w', ' ', 'a', 'r', 'e', ' ', 'y', 'o', 'u', '?']
@@ -2407,7 +2596,7 @@ type test4 = Split<"", "">; // []
 type test5 = Split<"", "z">; // ['']
 type test6 = Split<string, "whatever">; // string[]
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 type Split<S extends string, SEP extends string> = string extends S
   // 对直接传入string做处理
   ? string[]
@@ -2426,7 +2615,7 @@ type Split<S extends string, SEP extends string> = string extends S
 >实现泛型的`ClassPublicKeys<T>`，它返回类的所有`pulic key`。
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 class A {
   public str: string;
   protected num: number;
@@ -2445,7 +2634,7 @@ class A {
 type test = ClassPublicKeys<A>; //  'str' | 'getNum'
 
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 type ClassPublicKeys<T> = keyof T
 ```
 
@@ -2454,13 +2643,13 @@ type ClassPublicKeys<T> = keyof T
 >实现一个泛型`IsRequiredKey<T, K>`，返回`K`是否是`T`的必需键。
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 type test1 = IsRequiredKey<{ a: number; b?: string }, "a">; // true
 type test2 = IsRequiredKey<{ a: number; b?: string }, "b">; // false
 type test3 = IsRequiredKey<{ a: number; b?: string }, "b" | "a">; // false
 
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 // 因为K有可能是联合类型，因此包裹下，避免触发分布式条件类型
 type IsRequiredKey<T, K extends keyof T> = [K] extends [
   // 取出所有键（必需的）的联合
@@ -2486,7 +2675,7 @@ type IsRequiredKey<
 >实现类型版本的`Object.fromEntries`。
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 interface Model {
   name: string;
   age: number;
@@ -2500,7 +2689,7 @@ type ModelEntries =
 
 type test1 = ObjectFromEntries<ModelEntries>; // Model
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 // T为元组的联合类型
 type ObjectFromEntries<T extends [string, any]> = {
   // P遍历联合类型就是每一项元组，直接取0和1索引即可
@@ -2513,7 +2702,7 @@ type ObjectFromEntries<T extends [string, any]> = {
 >实现`type IsPalindrome<T>`检查字符串或数字是否为回文。
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 type test1 = IsPalindrome<"abc">; // false
 type test2 = IsPalindrome<"b">; // true
 type test3 = IsPalindrome<"abca">; // false
@@ -2524,7 +2713,7 @@ type test7 = IsPalindrome<2332>; // true
 type test8 = IsPalindrome<19260817>; // false
 
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 type ToArr<S> = `${S}` extends `${infer L}${infer R}` ? [L, ...ToArr<R>] : [];
 
 type IsPalindrome<
@@ -2556,7 +2745,7 @@ type IsPalindrome<T extends string | number> =
 >实现类型`MutableKeys`，它将所有可变(非只读)键选择到一个联合中。
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 type test1 = MutableKeys<{ a: number; readonly b: string }>; // 'a'
 type test2 = MutableKeys<{ a: undefined; readonly b: undefined }>; // 'a'
 type test3 = MutableKeys<{
@@ -2568,7 +2757,7 @@ type test3 = MutableKeys<{
 type test4 = MutableKeys<{}>; // never
 
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 // 判断两个类型是否相等
 type IsEqual<A, B> = (<X>() => X extends A ? 1 : 2) extends <X>() => X extends B
   ? 1
@@ -2593,7 +2782,7 @@ type MutableKeys<T> = keyof {
 >实现类似`Lodash.intersection`的类型版本。
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 type test1 = Intersection<[[1, 2], [2, 3], [2, 2]]>; // 2
 type test2 = Intersection<[[1, 2, 3], [2, 3, 4], [2, 2, 3]]>; // 2 | 3
 type test3 = Intersection<[[1, 2], [3, 4], [5, 6]]>; // never
@@ -2602,7 +2791,7 @@ type test5 = Intersection<[[1, 2, 3], 2 | 3 | 4, 2 | 3]>; // 2 | 3
 type test6 = Intersection<[[1, 2, 3], 2, 3]>; // never
 
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 // 两个联合类型交叉取交集，unknown与其他类型组成交叉类型还是其他类型
 type e = (1 | 2) & (2 | 3 | 1) & unknown; // 1 | 2
 
@@ -2641,7 +2830,7 @@ todo
 
 ```ts
 todo
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 type test1 = ValidDate<"0102">; // true
 type test2 = ValidDate<"0131">; // true
 type test3 = ValidDate<"1231">; // true
@@ -2653,7 +2842,7 @@ type test8 = ValidDate<"0123">; // true
 type test9 = ValidDate<"01234">; // false
 type test10 = ValidDate<"">; // false
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 type ValidDate<T extends string> = any;
 ```
 
@@ -2666,13 +2855,13 @@ todo
 ### Maximum
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 type test1 = Maximum<[]>; //never
 type test2 = Maximum<[0, 2, 1]>; //2
 type test3 = Maximum<[1, 20, 200, 150]>; //200
 
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 type Maximum<
   T extends any[],
   U = T[number],
@@ -2692,7 +2881,7 @@ type Maximum<
 >将对象的键大写，如果值是数组，则遍历数组中的对象。
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 type foo = {
   foo: string;
   bars: [{ foo: string }];
@@ -2710,7 +2899,7 @@ type Foo = {
 type test1 = CapitalizeNestObjectKeys<foo>; // Foo
 
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 type CapitalizeNestObjectKeys<T> = T extends unknown[]
   ? T extends [infer F, ...infer R]
     // T如果是数组类型就递归处理每个成员
@@ -2730,7 +2919,7 @@ type CapitalizeNestObjectKeys<T> = T extends unknown[]
 >给定一个类型联合和要替换的类型对数组`([[string, number]， [Date, null]])`，返回一个用类型对替换的新联合。
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 // string -> null
 type test1 = UnionReplace<number | string, [[string, null]]>; // number | null
 
@@ -2741,7 +2930,7 @@ type test2 = UnionReplace<
 >; // undefined | string | object
 
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 // 思路：遍历U，在联合类型T中替换指定类型
 type UnionReplace<T, U extends [any, any][]> = U extends [
   infer F extends [any, any],
@@ -2778,14 +2967,14 @@ todo
 
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 type test1 = SnakeCase<"hello">; // 'hello'
 type test2 = SnakeCase<"userName">; // 'user_name'
 type test3 = SnakeCase<"getElementById">; // 'get_element_by_id'
 type test4 = SnakeCase<"getElementById" | "getElementByClassNames">; // 'get_element_by_id' | 'get_element_by_class_names'
 
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 // U存储格式化后的T
 type SnakeCase<T, U extends string = ""> = T extends `${infer F}${infer R}`
   // 遍历T，如果遍历到的字符是大写则转为小写拼接，否则直接拼接
@@ -2805,7 +2994,7 @@ type SnakeCase<T> = T extends `${infer F}${infer R}`
 >实现一个类型判断是否是负数。
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 type test1 = IsNegativeNumber<0>; // false
 type test2 = IsNegativeNumber<number>; // never
 type test3 = IsNegativeNumber<-1 | -2>; // never
@@ -2817,7 +3006,7 @@ type test8 = IsNegativeNumber<1.9>; // false
 type test9 = IsNegativeNumber<100_000_000>; // false
 
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 // 判断类型是否是联合类型
 type IsUnion<T, U = T> = T extends T ? ([U] extends [T] ? false : true) : never;
 
@@ -2837,7 +3026,7 @@ type IsNegativeNumber<T extends number> = IsUnion<T> extends true
 >实现`util`类型`OptionalUndefined<T, Props>`，它将`T`中所有可以未定义的属性转换为可选属性。此外，可以传递第二个可选的泛型`Props`来限制可以修改的属性。
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 type test1 = OptionalUndefined<{ value: string | undefined }, "value">; // { value?: string | undefined }
 type test2 = OptionalUndefined<{ value: string; desc: string }, "value">; // { value: string; desc: string }
 type test3 = OptionalUndefined<
@@ -2860,7 +3049,7 @@ type test7 = OptionalUndefined<{ value?: string }, "value">; // { value?: string
 type test8 = OptionalUndefined<{ value?: string }>; // { value?: string }
 
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 // Omit<x, never>相当于把x原封不动的复制一份
 type OptionalUndefined<T, Props extends keyof T = keyof T> = Omit<
   {
@@ -2904,7 +3093,7 @@ type OptionalUndefined<
 >实现泛型`GetReadonlyKeys<T>`，`GetReadonlyKeys<T>`返回由对象`T`所有只读属性的键组成的联合类型。
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 interface Todo1 {
   readonly title: string;
   description: string;
@@ -2921,7 +3110,7 @@ type test1 = GetReadonlyKeys<Todo1>; // 'title'
 type test2 = GetReadonlyKeys<Todo2>; // 'title' | 'description'
 
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 type IsEqual<A, B> = (<X>() => X extends A ? 1 : 2) extends <X>() => X extends B
   ? 1
   : 2
@@ -2947,7 +3136,7 @@ type GetReadonlyKeys<T> = keyof {
 
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 type test1 = ParseQueryString<"">; // {}
 type test2 = ParseQueryString<"k1">; // { k1: true }
 type test3 = ParseQueryString<"k1&k1">; // { k1: true }
@@ -2965,7 +3154,7 @@ type test14 = ParseQueryString<"k1=v1&k1">; // { k1: ['v1', true] }
 type test15 = ParseQueryString<"k1&k1=v1">; // { k1: [true, 'v1'] }
 
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 type ArrayToString<T> = T extends unknown[]
   ? T extends [infer F, ...infer R]
     ? `${F & string}${ArrayToString<R>}`
@@ -3024,7 +3213,7 @@ type ParseQueryString<
 >实现`Array.slice`的类型版本。
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 type Arr = [1, 2, 3, 4, 5];
 
 // basic
@@ -3048,7 +3237,7 @@ type test11 = Slice<Arr, 1, 0>; // []
 type test12 = Slice<Arr, 10, 20>; // []
 
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 // 构建数组
 type NewArray<N extends number, T extends 1[] = []> = T["length"] extends N
   ? T
@@ -3140,7 +3329,7 @@ type Slice<
 
 
 ```ts
-// ---------test case------------
+/* _____________ Test Cases _____________ */
 const curried1 = DynamicParamsCurrying(
   (a: string, b: number, c: boolean) => true
 );
@@ -3186,7 +3375,7 @@ type test12 = typeof curried2Return9; // boolean
 type test13 = typeof curried2Return10; // boolean
 
 
-// ------------code---------------
+/* _____________ Your Code Here _____________ */
 declare function DynamicParamsCurrying<A extends unknown[], R>(
   fn: (...args: A) => R
 ): Curry<A, R>;
@@ -3214,5 +3403,52 @@ todo
 ```ts
 todo
 ```
+
+### Tag
+
+```ts
+todo
+```
+
+### Inclusive Range
+
+>给定两个整数，取出之间的范围，包括边界。
+
+```ts
+/* _____________ Test Cases _____________ */
+type test1 = InclusiveRange<200, 1>; // []
+type test2 = InclusiveRange<10, 5>; // []
+type test3 = InclusiveRange<5, 5>; // [5]
+type test4 = InclusiveRange<0, 10>; // [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+type test5 = InclusiveRange<1, 200>; // [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200]
+type test6 = InclusiveRange<22, 146>; // [22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146]
+
+
+/* _____________ Your Code Here _____________ */
+type InclusiveRange<
+  Lower extends number,
+  Higher extends number,
+  // 计数
+  C extends any[] = [],
+  // 存储开关
+  F = false,
+  // 存储结果
+  R extends number[] = []
+> = F extends true
+  // 计数达到上限Higher时
+  ? C["length"] extends Higher
+    ? [...R, C["length"]]
+    // 没达到上限 && 开关F开启
+    : InclusiveRange<Lower, Higher, [...C, 1], true, [...R, C['length']]>
+  // 计数没达到下限Lower时，不用存
+  : C['length'] extends Lower
+    ? InclusiveRange<Lower, Higher, C, true>
+    // 边界条件判断，上限比下限小时
+    : C['length'] extends Higher
+      ? []
+      // 计数+1
+      : InclusiveRange<Lower, Higher, [...C, 1], false>;
+```
+
 
 未完待续...
