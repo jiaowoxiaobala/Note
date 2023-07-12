@@ -2457,7 +2457,7 @@ type Format<T extends string> = T extends `${string}%${infer M}${infer R}`
   : string;
 ```
 
-### DeepObjectToUniq
+### Deep object to unique
 
 ```ts
 todo
@@ -2465,11 +2465,52 @@ todo
 
 ### Length of String 2
 
+>实现一个计算模板字符串长度的类型`LengthOfString<S>`。
+
 ```ts
-todo
+/* _____________ Test Cases _____________ */
+type test1 = LengthOfString<"">; // 0
+type test2 = LengthOfString<"1">; // 1
+type test3 = LengthOfString<"12">; // 2
+type test4 = LengthOfString<"1234567890">; // 10
+type test5 = LengthOfString<"12345678901">; // 11
+type test6 = LengthOfString<"123456789012">; // 12
+type test7 = LengthOfString<"12345678901234567890">; // 20
+type test8 = LengthOfString<"123456789012345678901">; // 21
+type test9 = LengthOfString<"1234567890123456789012">; // 22
+type test10 =
+  LengthOfString<"aaaaaaaaaaaaggggggggggggggggggggkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">; // 272
+type test11 =
+  LengthOfString<"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000">; // 999
+
+
+/* _____________ Your Code Here _____________ */
+// 思路：遍历S，每遍历1个子字符，就给L+1，最后返回L的长度
+type LengthOfString<
+  S extends string,
+  L extends 1[] = []
+> = S extends `${infer F}${infer R}`
+  ? LengthOfString<R, [...L, 1]>
+  : L["length"];
+
+
+// 另一种解法：
+// 适用于超长字符串的长度计算
+type LengthOfString<
+  S extends string,
+  L extends 1[] = []
+  // 一次匹配10个字符
+> = S extends `${s}${s}${s}${s}${s}${s}${s}${s}${s}${s}${infer R}`
+  ? LengthOfString<R, [...L, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]>
+  // 匹配不上再去匹配1个字符
+  : S extends `${s}${infer R}`
+  ? LengthOfString<R, [...L, 1]>
+  : L["length"];
 ```
 
 ### Union to Tuple
+
+>实现一个类型`UnionToTuple`用于将联合转换为元组。
 
 ```ts
 todo
@@ -2483,14 +2524,170 @@ todo
 
 ### DeepPick 
 
+>实现一个类型`DeepPick`，它扩展了`Utility`类型`Pick`。类型接受两个参数。
+
+
 ```ts
-todo
+/* _____________ Test Cases _____________ */
+type Obj = {
+  a: number;
+  b: string;
+  c: boolean;
+  obj: {
+    d: number;
+    e: string;
+    f: boolean;
+    obj2: {
+      g: number;
+      h: string;
+      i: boolean;
+    };
+  };
+  obj3: {
+    j: number;
+    k: string;
+    l: boolean;
+  };
+};
+
+type test1 = DeepPick<Obj, "">; // unknown
+type test2 = DeepPick<Obj, "a">; // { a: number }
+type test3 = DeepPick<Obj, "a" | "">; // { a: number } & unknown
+type test4 = DeepPick<Obj, "a" | "obj.e">; // { a: number } & { obj: { e: string } }
+type test5 = DeepPick<Obj, "a" | "obj.e" | "obj.obj2.i">; // { a: number } & { obj: { e: string } } & { obj: { obj2: { i: boolean } } }
+
+
+/* _____________ Your Code Here _____________ */
+// 如果路径满足x.x
+type TypeGet<T, Paths> = Paths extends `${infer A}.${infer B}`
+  // 取出第一个路径，把第二个路径递归传入
+  ? A extends keyof T
+    ? { [K in A]: TypeGet<T[A], B> }
+    : never
+  // 路径不满足x.x，判断是否满足keyof T
+  : Paths extends keyof T
+  ? { [K in Paths]: T[Paths] }
+  : never;
+
+// 利用函数参数的逆变特征，把联合类型转换为交叉类型
+type UnionToIntersection<U> = (U extends any ? (arg: U) => any : never) extends (
+  arg: infer I
+) => any
+  ? I
+  : never;
+
+type DeepPick<T, PathUnion extends string> = UnionToIntersection<
+  // 由于PathUnion可能是联合类型，TypeGet得到的类型结果是联合类型
+  // 需要通过UnionToIntersection转为交叉类型
+  TypeGet<T, PathUnion>
+>;
+
+// 另一种解法
+type DeepPick<
+  T extends { [x: PropertyKey]: any },
+  U extends string
+> = UnionToIntersection<
+  U extends keyof T
+    ? Pick<T, U>
+    : U extends `${infer L}.${infer R}`
+    ? { [P in L]: DeepPick<T[L], R> }
+    : never // UnionToIntersection<never> ==> unknown
+>;
+
 ```
 
 ### Pinia
 
+>创建一个类型级函数，其类型与`Pinia`库相似。
+
 ```ts
-todo
+/* _____________ Test Cases _____________ */
+const store = defineStore({
+  id: "",
+  state: () => ({
+    num: 0,
+    str: "",
+  }),
+  getters: {
+    stringifiedNum() {
+      // @ts-expect-error
+      this.num += 1;
+
+      return this.num.toString();
+    },
+    parsedNum() {
+      return parseInt(this.stringifiedNum);
+    },
+  },
+  actions: {
+    init() {
+      this.reset();
+      this.increment();
+    },
+    increment(step = 1) {
+      this.num += step;
+    },
+    reset() {
+      this.num = 0;
+
+      // @ts-expect-error
+      this.parsedNum = 0;
+
+      return true;
+    },
+    setNum(value: number) {
+      this.num = value;
+    },
+  },
+});
+
+// @ts-expect-error
+store.nopeStateProp;
+// @ts-expect-error
+store.nopeGetter;
+// @ts-expect-error
+store.stringifiedNum();
+store.init();
+// @ts-expect-error
+store.init(0);
+store.increment();
+store.increment(2);
+// @ts-expect-error
+store.setNum();
+// @ts-expect-error
+store.setNum("3");
+store.setNum(3);
+
+const r = store.reset();
+
+type test1 = typeof store.num; // number
+type test2 = typeof store.str; // string
+type test3 = typeof store.stringifiedNum; // string
+type test4 = typeof store.parsedNum; // number
+type test5 = typeof r; // true
+
+
+/* _____________ Your Code Here _____________ */
+// 获取getter返回值的类型
+type GettersReturnType<G> = {
+  readonly [K in keyof G]: G[K] extends (...args: never[]) => infer R
+    ? R
+    : never;
+};
+
+interface Store<S, G, A> {
+  id: string;
+  state: () => S;
+  // ThisType: 用于指定 this 的类型，不影响参数的类型
+  // getters的类型为G， getters的this类型为Readonly<S> & GettersReturnType<G> & A
+  // 注意getters中访问state是只读的
+  getters?: G & ThisType<Readonly<S> & GettersReturnType<G> & A>;
+  actions?: A & ThisType<S & GettersReturnType<G> & A>;
+}
+
+declare function defineStore<S, G, A>(
+  store: Store<S, G, A>
+): Readonly<S> & GettersReturnType<G> & A;
 ```
 
 ### Camelize 
@@ -3451,4 +3648,32 @@ type InclusiveRange<
 ```
 
 
-未完待续...
+### Sort 
+
+```ts
+todo
+```
+
+### DistributeUnions 
+
+```ts
+todo
+```
+
+### Assert Array Index
+
+```ts
+todo
+```
+
+### JSON Parser
+
+```ts
+todo
+```
+
+### Subtract 
+
+```ts
+todo
+```
