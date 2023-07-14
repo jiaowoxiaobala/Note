@@ -2513,7 +2513,44 @@ type LengthOfString<
 >实现一个类型`UnionToTuple`用于将联合转换为元组。
 
 ```ts
-todo
+/* _____________ Test Cases _____________ */
+type ExtractValuesOfTuple<T extends any[]> = T[keyof T & number];
+
+type test1 = UnionToTuple<"a" | "b">["length"]; // 2
+type test2 = ExtractValuesOfTuple<UnionToTuple<"a" | "b">>; // 'a' | 'b'
+type test3 = ExtractValuesOfTuple<UnionToTuple<"a">>; // 'a'
+type test4 = ExtractValuesOfTuple<UnionToTuple<any>>; // any
+type test5 = ExtractValuesOfTuple<UnionToTuple<undefined | void | 1>>; // void | 1
+type test6 = ExtractValuesOfTuple<UnionToTuple<any | 1>>; // any | 1
+type test7 = ExtractValuesOfTuple<UnionToTuple<any | 1>>; // any
+type test8 = ExtractValuesOfTuple<UnionToTuple<"d" | "f" | 1 | never>>; // 'f' | 'd' | 1
+type test9 = ExtractValuesOfTuple<UnionToTuple<[{ a: 1 }] | 1>>; // [{ a: 1 }] | 1
+type test10 = ExtractValuesOfTuple<UnionToTuple<never>>; // never
+type test11 = ExtractValuesOfTuple<
+  UnionToTuple<"a" | "b" | "c" | 1 | 2 | "d" | "e" | "f" | "g">
+>; // 'f' | 'e' | 1 | 2 | 'g' | 'c' | 'd' | 'a' | 'b'
+
+
+/* _____________ Your Code Here _____________ */
+// 联合类型转交叉类型 (x: 1) => 0 | (x: 2) => 0 -> (x: 1) => 0 & (x: 2) => 0
+type UnionToIntersection<U> = (
+  U extends unknown ? (arg: U) => 0 : never
+) extends (arg: infer I) => 0
+  ? I
+  : never;
+
+// 函数重载进行类型推断时，将从最后一个签名推断
+// (x: 1) => 0 & (x: 2) => 0 extends (x: infer L) => 0 ? L : never
+// L为2
+type LastInUnion<U> = UnionToIntersection<
+  U extends unknown ? (x: U) => 0 : never
+> extends (x: infer L) => 0
+  ? L
+  : never;
+
+type UnionToTuple<U, Last = LastInUnion<U>> = [U] extends [never]
+  ? []
+  : [...UnionToTuple<Exclude<U, Last>>, Last];
 ```
 
 ### String Join
