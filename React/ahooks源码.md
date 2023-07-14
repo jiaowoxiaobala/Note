@@ -221,7 +221,119 @@ function useToggle<D, R>(defaultValue: D = false as unknown as D, reverseValue?:
 
 ### useUrlState
 
+>通过`url query`来管理`state`的 Hook。
+
 ```ts
+import { useMemoizedFn, useUpdate } from 'ahooks';
+// 依赖query-string
+import { parse, stringify } from 'query-string';
+import type { ParseOptions, StringifyOptions } from 'query-string';
+import { useMemo, useRef } from 'react';
+import type * as React from 'react';
+import * as tmp from 'react-router';
+
+// ignore waring `"export 'useNavigate' (imported as 'rc') was not found in 'react-router'`
+const rc = tmp as any;
+
+export interface Options {
+  // 路由切换模式
+  navigateMode?: 'push' | 'replace';
+  parseOptions?: ParseOptions;
+  stringifyOptions?: StringifyOptions;
+}
+
+// 配置parse配置
+const baseParseConfig: ParseOptions = {
+  // 是否解析数字类型
+  parseNumbers: false,
+  // 是否解析布尔类型
+  parseBooleans: false,
+};
+
+// 默认stringify配置
+const baseStringifyConfig: StringifyOptions = {
+  // 跳过以null作为值的键
+  skipNull: false,
+  // 跳过以空字符串作为值的键。
+  skipEmptyString: false,
+};
+
+type UrlState = Record<string, any>;
+
+const useUrlState = <S extends UrlState = UrlState>(
+  initialState?: S | (() => S),
+  options?: Options,
+) => {
+  type State = Partial<{ [key in keyof S]: any }>;
+  const { navigateMode = 'push', parseOptions, stringifyOptions } = options || {};
+
+  // 配置合并
+  const mergedParseOptions = { ...baseParseConfig, ...parseOptions };
+  const mergedStringifyOptions = { ...baseStringifyConfig, ...stringifyOptions };
+
+  // https://github.com/remix-run/history/blob/main/docs/api-reference.md#location
+  const location = rc.useLocation();
+
+  // react-router v5
+  const history = rc.useHistory?.();
+  // react-router v6
+  const navigate = rc.useNavigate?.();
+
+  const update = useUpdate();
+
+  // 保存初始值
+  const initialStateRef = useRef(
+    typeof initialState === 'function' ? (initialState as () => S)() : initialState || {},
+  );
+
+  const queryFromUrl = useMemo(() => {
+    // 将查询字符串解析为对象
+    return parse(location.search, mergedParseOptions);
+  }, [location.search]);
+
+  // url query对象
+  const targetQuery: State = useMemo(
+    () => ({
+      ...initialStateRef.current,
+      ...queryFromUrl,
+    }),
+    [queryFromUrl],
+  );
+
+  const setState = (s: React.SetStateAction<State>) => {
+    const newQuery = typeof s === 'function' ? s(targetQuery) : s;
+
+    // 1. 如果 setState 后，search 没变化，就需要 update 来触发一次更新。
+    // 2. update 和 history 的更新会合并，不会造成多次更新
+    update();
+
+    // 兼容react-touer v5和v6
+    if (history) {
+      history[navigateMode](
+        {
+          hash: location.hash,
+          search: stringify({ ...queryFromUrl, ...newQuery }, mergedStringifyOptions) || '?',
+        },
+        location.state,
+      );
+    }
+    if (navigate) {
+      navigate(
+        {
+          hash: location.hash,
+          // 将对象字符串化为查询字符串
+          search: stringify({ ...queryFromUrl, ...newQuery }, mergedStringifyOptions) || '?',
+        },
+        {
+          replace: navigateMode === 'replace',
+          state: location.state,
+        },
+      );
+    }
+  };
+
+  return [targetQuery, useMemoizedFn(setState)] as const;
+};
 ```
 
 ### useCookieState

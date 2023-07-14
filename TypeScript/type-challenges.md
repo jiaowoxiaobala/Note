@@ -2459,6 +2459,8 @@ type Format<T extends string> = T extends `${string}%${infer M}${infer R}`
 
 ### Deep object to unique
 
+>创建一个类型，该类型接受一个对象，并使该对象和其中的所有深度嵌套对象唯一，同时保留所有对象的字符串和数字键，以及这些键上的所有属性的值。
+
 ```ts
 todo
 ```
@@ -3049,7 +3051,92 @@ todo
 >获取`.get (lodash函数)`可以调用的所有可能路径，以获取对象的值，实现类型版本。
 
 ```ts
-todo
+/* _____________ Test Cases _____________ */
+
+type ExpectExtends<VALUE, EXPECTED> = EXPECTED extends VALUE ? true : false;
+
+const ref = {
+  count: 1,
+  person: {
+    name: "cattchen",
+    age: 22,
+    books: ["book1", "book2"],
+    pets: [
+      {
+        type: "cat",
+      },
+    ],
+  },
+};
+
+type a = ObjectKeyPaths<{ a: ["book1", "book2"] }>;
+
+type test1 = ObjectKeyPaths<{ name: string; age: number }>; // 'name' | 'age'
+
+type test2 = ObjectKeyPaths<{
+  refCount: number;
+  person: { name: string; age: number };
+}>; // 'refCount' | 'person' | 'person.name' | 'person.age'
+
+type test3 = ExpectExtends<ObjectKeyPaths<typeof ref>, "count">;
+type test4 = ExpectExtends<ObjectKeyPaths<typeof ref>, "person">;
+type test5 = ExpectExtends<ObjectKeyPaths<typeof ref>, "person.name">;
+type test6 = ExpectExtends<ObjectKeyPaths<typeof ref>, "person.age">;
+type test7 = ExpectExtends<ObjectKeyPaths<typeof ref>, "person.books">;
+type test8 = ExpectExtends<ObjectKeyPaths<typeof ref>, "person.pets">;
+type test9 = ExpectExtends<ObjectKeyPaths<typeof ref>, "person.books.0">;
+type test10 = ExpectExtends<ObjectKeyPaths<typeof ref>, "person.books.1">;
+type test11 = ExpectExtends<ObjectKeyPaths<typeof ref>, "person.books[0]">;
+type test12 = ExpectExtends<ObjectKeyPaths<typeof ref>, "person.books.[0]">;
+type test13 = ExpectExtends<ObjectKeyPaths<typeof ref>, "person.pets.0.type">;
+type test14 = ExpectExtends<ObjectKeyPaths<typeof ref>, "notExist">; // false
+type test15 = ExpectExtends<ObjectKeyPaths<typeof ref>, "person.notExist">; // false
+type test16 = ExpectExtends<ObjectKeyPaths<typeof ref>, "person.name.">; // false
+type test17 = ExpectExtends<ObjectKeyPaths<typeof ref>, ".person.name">; // false
+type test18 = ExpectExtends<ObjectKeyPaths<typeof ref>, "person.pets.[0]type">; // false
+
+
+/* _____________ Your Code Here _____________ */
+// 拼接路径
+// 根对象下的路径不用拼接，通过[Perfix] extends [never]判断
+type GetPath<K extends string | number, Prefix extends string = ""> = [
+  Prefix
+] extends [never]
+  ? `${K}`
+  :
+      | `${Prefix}.${K}`
+      // 如果K是number类型（兼容数组场景），特殊处理不同读取格式
+      | (K extends number ? `${Prefix}[${K}]` | `${Prefix}.[${K}]` : never);
+
+type ObjectKeyPaths<T extends object, R extends string = never> =
+  | R
+  | {
+      [K in keyof T & (string | number)]: T[K] extends object
+        // 如果T[K]是对象，拼接后继续递归
+        ? ObjectKeyPaths<T[K], GetPath<K, R>>
+        : GetPath<K, R>;
+    }[keyof T & (string | number)];
+
+
+// 另一种解法
+type GetPath<K extends number | string, IsRoot extends boolean> = IsRoot extends true
+  ? `${K}`
+  // 处理数组的读取格式
+  : `.${K}` | (K extends number ? `[${K}]` | `.[${K}]` : never);
+
+// IsRoot表示根节点，根节点下的属性访问路径不需要处理
+type ObjectKeyPaths<
+  T extends object,
+  IsRoot extends boolean = true,
+  K extends keyof T = keyof T
+> = K extends string | number
+  ?
+      | GetPath<K, IsRoot>
+      | (T[K] extends object
+          // 拼接路径
+          ? `${GetPath<K, IsRoot>}${ObjectKeyPaths<T[K], false>}`
+          : never)
+  : never;
 ```
 
 ### Two Sum
@@ -3082,8 +3169,118 @@ type ValidDate<T extends string> = any;
 
 ### Assign 
 
+>有一个目标对象和一个源对象数组。将属性从源复制到目标，如果它具有与源相同的属性，保留源属性，并删除目标属性。
+
 ```ts
-todo
+/* _____________ Test Cases _____________ */
+// case1
+type Case1Target = {};
+
+type Case1Origin1 = {
+  a: "a";
+};
+
+type Case1Origin2 = {
+  b: "b";
+};
+
+type Case1Origin3 = {
+  c: "c";
+};
+
+type Case1Answer = {
+  a: "a";
+  b: "b";
+  c: "c";
+};
+
+// case2
+type Case2Target = {
+  a: [1, 2, 3];
+};
+
+type Case2Origin1 = {
+  a: {
+    a1: "a1";
+  };
+};
+
+type Case2Origin2 = {
+  b: [2, 3, 3];
+};
+
+type Case2Answer = {
+  a: {
+    a1: "a1";
+  };
+  b: [2, 3, 3];
+};
+
+// case3
+
+type Case3Target = {
+  a: 1;
+  b: ["b"];
+};
+
+type Case3Origin1 = {
+  a: 2;
+  b: {
+    b: "b";
+  };
+  c: "c1";
+};
+
+type Case3Origin2 = {
+  a: 3;
+  c: "c2";
+  d: true;
+};
+
+type Case3Answer = {
+  a: 3;
+  b: {
+    b: "b";
+  };
+  c: "c2";
+  d: true;
+};
+
+// case 4
+type Case4Target = {
+  a: 1;
+  b: ["b"];
+};
+
+type Case4Answer = {
+  a: 1;
+  b: ["b"];
+};
+
+type test1 = Assign<Case1Target, [Case1Origin1, Case1Origin2, Case1Origin3]>; // Case1Answer
+type test2 = Assign<Case2Target, [Case2Origin1, Case2Origin2]>; // Case2Answer
+type test3 = Assign<Case3Target, [Case3Origin1, Case3Origin2]>; // Case3Answer
+type test4 = Assign<Case4Target, ["", 0]>; // Case4Answer
+
+
+/* _____________ Your Code Here _____________ */
+// 排除非对象类型的合并
+type Merge<A, B> = B extends object
+  ? {
+      // K如果是B的key，那么就取B[K]，否则就取A[K]
+      [K in keyof A | keyof B]: K extends keyof B
+        ? B[K]
+        : K extends keyof A
+        ? A[K]
+        : never;
+    }
+  : A;
+
+type Assign<
+  T extends Record<string, unknown>,
+  U extends unknown[]
+// 遍历数组，依次进行合并
+> = U extends [infer F, ...infer R] ? Assign<Merge<T, F>, R> : T;
 ```
 
 ### Maximum
@@ -3191,8 +3388,47 @@ todo
 
 ### Tree path array
 
+>创建类型`Path`，该类型表示以数组形式验证树的可能路径。
+
 ```ts
-todo
+/* _____________ Test Cases _____________ */
+type ExpectExtends<VALUE, EXPECTED> = EXPECTED extends VALUE ? true : false;
+
+declare const example: {
+  foo: {
+    bar: {
+      a: string;
+    };
+    baz: {
+      b: number;
+      c: number;
+    };
+  };
+};
+
+// Possible solutions:
+// []
+// ['foo']
+// ['foo', 'bar']
+// ['foo', 'bar', 'a']
+// ['foo', 'baz']
+// ['foo', 'baz', 'b']
+// ['foo', 'baz', 'c']
+
+type test1 = ExpectExtends<Path<(typeof example)["foo"]["bar"]>, ["a"]>;
+type test2 = ExpectExtends<Path<(typeof example)["foo"]["baz"]>, ["b"] | ["c"]>;
+type test3 = ExpectExtends<
+  Path<(typeof example)["foo"]>,
+  ["bar"] | ["baz"] | ["bar", "a"] | ["baz", "b"] | ["baz", "c"]
+>;
+type test4 = ExpectExtends<Path<(typeof example)["foo"]["bar"]>, ["z"]>;
+
+
+/* _____________ Your Code Here _____________ */
+type Path<T> = {
+  // 如果T[K]是对象类型，则把这个K放到数组中并且递归调用Path<T[K]>（即K和K的子key在同一个数组）
+  [K in keyof T]: [K] | (T[K] extends object ? [K, ...Path<T[K]>] : never);
+}[keyof T];
 ```
 
 ### SnakeCase
