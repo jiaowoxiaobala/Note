@@ -297,4 +297,4 @@ export default function Counter() {
 }
 ```
 
-## [Synchronizing with Effects](https://react.dev/learn/synchronizing-with-effects)
+## [You Might Not Need an Effect](https://react.dev/learn/you-might-not-need-an-effect)
