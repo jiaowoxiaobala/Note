@@ -2557,8 +2557,44 @@ type UnionToTuple<U, Last = LastInUnion<U>> = [U] extends [never]
 
 ### String Join
 
+>创建类型安全的字符串连接实用程序。
+
 ```ts
-todo
+/* _____________ Test Cases _____________ */
+// Edge cases
+const noCharsOutput = join("-")();
+const oneCharOutput = join("-")("a");
+const noDelimiterOutput = join("")("a", "b", "c");
+
+// Regular cases
+const hyphenOutput = join("-")("a", "b", "c");
+const hashOutput = join("#")("a", "b", "c");
+const twoCharOutput = join("-")("a", "b");
+const longOutput = join("-")("a", "b", "c", "d", "e", "f", "g", "h");
+
+type test1 = typeof noCharsOutput; // ""
+type test2 = typeof oneCharOutput; // "a"
+type test3 = typeof noDelimiterOutput; // "abc"
+type test4 = typeof twoCharOutput; // "a-b"
+type test5 = typeof hyphenOutput; // "a-b-c"
+type test6 = typeof hashOutput; // "a#b#c"
+type test7 = typeof longOutput; // "a-b-c-d-e-f-g-h"
+
+
+/* _____________ Your Code Here _____________ */
+type Join<
+  D extends string,
+  R extends string[],
+  O extends string = ""
+> = R extends [infer F extends string, ...infer Res extends string[]]
+  ? // 遍历字符串，依次拼接
+    // 如果是第一个字符串，直接拼接，否则加上分隔符
+    Join<D, Res, `${O}${O extends "" ? "" : D}${F}`>
+  : O;
+
+declare function join<D extends string>(
+  delimiter: D
+): <R extends string[]>(...parts: R) => Join<D, R>;
 ```
 
 ### DeepPick 
@@ -2632,7 +2668,6 @@ type DeepPick<
     ? { [P in L]: DeepPick<T[L], R> }
     : never // UnionToIntersection<never> ==> unknown
 >;
-
 ```
 
 ### Pinia
@@ -3149,6 +3184,8 @@ todo
 
 ### ValidData
 
+>实现一个类型判断传入的`T`是否为有效日期。
+
 ```ts
 todo
 /* _____________ Test Cases _____________ */
@@ -3163,8 +3200,19 @@ type test8 = ValidDate<"0123">; // true
 type test9 = ValidDate<"01234">; // false
 type test10 = ValidDate<"">; // false
 
+
 /* _____________ Your Code Here _____________ */
-type ValidDate<T extends string> = any;
+type Num = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+
+type MM = `0${Num}` | `1${0 | 1 | 2}`;
+
+// 列出所有合法的日期
+type AllDate =
+  | `${MM}${`${0}${Num}` | `${1}${0 | Num}` | `2${0 | Exclude<Num, 9>}`}`
+  | `${Exclude<MM, "02">}${29 | 30}`
+  | `${Exclude<MM, "02" | "04" | "06" | "09" | "11">}${31}`;
+
+type ValidDate<T extends string> = T extends AllDate ? true : false;
 ```
 
 ### Assign 
