@@ -3971,8 +3971,30 @@ type InclusiveRange<
 
 ### Sort 
 
+>按升序或降序对自然数数组进行排序。
+
 ```ts
-todo
+/* _____________ Test Cases _____________ */
+type test1 = Sort<[]>; // []
+type test2 = Sort<[1]>; // [1]
+type test3 = Sort<[2, 1]>; // [1, 2]
+type test4 = Sort<[0, 0, 0]>; // [0, 0, 0]
+type test5 = Sort<[1, 2, 3]>; // [1, 2, 3]
+type test6 = Sort<[3, 2, 1]>; // [1, 2, 3]
+type test7 = Sort<[3, 2, 1, 2]>; // [1, 2, 2, 3]
+type test8 = Sort<[3, 2, 0, 1, 0, 0, 0]>; // [0, 0, 0, 0, 1, 2, 3]
+type test9 = Sort<[2, 4, 7, 6, 6, 6, 5, 8, 9]>; // [2, 4, 5, 6, 6, 6, 7, 8, 9]
+type test10 = Sort<[1, 1, 2, 1, 1, 1, 1, 1, 1]>; // [1, 1, 1, 1, 1, 1, 1, 1, 2]
+type test11 = Sort<[], true>; // []
+type test12 = Sort<[1], true>; // [1]
+type test13 = Sort<[2, 1], true>; // [2, 1]
+type test14 = Sort<[0, 0, 0], true>; // [0, 0, 0]
+type test15 = Sort<[1, 2, 3], true>; // [3, 2, 1]
+type test16 = Sort<[3, 2, 1], true>; // [3, 2, 1]
+type test17 = Sort<[3, 2, 1, 2], true>; // [3, 2, 2, 1]
+type test18 = Sort<[3, 2, 0, 1, 0, 0, 0], true>; // [3, 2, 1, 0, 0, 0, 0]
+type test19 = Sort<[2, 4, 7, 6, 6, 6, 5, 8, 9], true>; // [9, 8, 7, 6, 6, 6, 5, 4, 2]
+
 ```
 
 ### DistributeUnions 

@@ -268,7 +268,7 @@ export default function Form() {
 
 >避免更改由`React`管理的`DOM`节点。
 
-```ts
+```tsx
 import { useState, useRef } from 'react';
 
 export default function Counter() {
