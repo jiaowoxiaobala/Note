@@ -11,7 +11,7 @@
 
 >`Zustand`更新状态很简单，使用新状态调用提供的`set`函数，它将与存储中的现有状态浅层合并。
 
-```ts
+```tsx
 type State = {
   firstName: string
   lastName: string
@@ -68,7 +68,7 @@ function App() {
 
 >更新深层嵌套的对象状态。
 
-```ts
+```tsx
 // 正常的更新方法是复制状态对象的每个层级
 // 使用spread运算符手动将其与新状态合并
 normalInc: () =>
@@ -97,7 +97,7 @@ immerInc: () =>
 
 >`set`函数更新状态时会自动合并原有的状态。(仅在第一级别（state层）合并)
 
-```ts
+```tsx
 import { create } from 'zustand'
 
 const useCountStore = create((set) => ({
@@ -150,7 +150,7 @@ set((state) => newState, true)
 
 ### create the following function: createSelectors
 
-```ts
+```tsx
 // 创建以下函数 createSelectors
 import { StoreApi, UseBoundStore } from "zustand";
 
@@ -203,7 +203,7 @@ const [bears, increment] = useBearStoreBase(state => [state.bears, state.increme
 
 >推荐在存储中并置状态和状态更新方法（将状态和操作放在一起）。
 
-```ts
+```tsx
 // 例如这样创建一个包含数据和操作的独立存储
 export const useBoundStore = create((set) => ({
   // 状态
@@ -231,3 +231,212 @@ export const setText = (text) => useBoundStore.setState({ text })
 
 ## [TypeScript Guide](https://docs.pmnd.rs/zustand/guides/typescript)
 
+## [Map and Set Usage](https://docs.pmnd.rs/zustand/guides/maps-and-sets-usage)
+
+>使用`Map`或`Set`作状态存储时需要包裹在对象里，然后使用`setState`更新。
+
+```tsx
+import { create } from 'zustand'
+
+// Without wrapping it in an object, it doesn't work.
+const useTheWrongWay = create(() => new Set());
+
+const useFooBar = create(() => ({ foo: new Map(), bar: new Set() }))
+
+function doSomething() {
+  // doing something...
+
+  // If you want to update some React component that uses `useFooBar`, you have to call setState
+  // to let React know that an update happened.
+  // Following React's best practices, you should create a new Map/Set when updating them:
+  useFooBar.setState((prev) => ({
+    foo: new Map(prev.foo).set('newKey', 'newValue'),
+    bar: new Set(prev.bar).add('newKey'),
+  }))
+}
+```
+
+## [How to reset state](https://docs.pmnd.rs/zustand/guides/how-to-reset-state)
+
+>重置初始状态。
+
+```tsx
+import { create } from 'zustand'
+
+// define types for state values and actions separately
+type State = {
+  salmon: number
+  tuna: number
+}
+
+type Actions = {
+  addSalmon: (qty: number) => void
+  addTuna: (qty: number) => void
+  reset: () => void
+}
+
+// 将初始状态单独提取出来
+// define the initial state
+const initialState: State = {
+  salmon: 0,
+  tuna: 0,
+}
+
+// create store
+const useSlice = create<State & Actions>()((set, get) => ({
+  ...initialState,
+
+  addSalmon: (qty: number) => {
+    set({ salmon: get().salmon + qty })
+  },
+
+  addTuna: (qty: number) => {
+    set({ tuna: get().tuna + qty })
+  },
+
+  // 定义reset方法，更新状态
+  reset: () => {
+    set(initialState)
+  },
+}))
+```
+
+>重置多个`store`的初始状态。
+
+```tsx
+import { create as _create, StateCreator } from 'zustand'
+
+// 保存重置初始状态方法的数组
+const resetters: (() => void)[] = []
+
+// 扩展zustand的create方法
+export const create = (<T extends unknown>(f: StateCreator<T> | undefined) => {
+  if (f === undefined) return create
+  const store = _create(f)
+
+  // 获取store的初始状态
+  const initialState = store.getState()
+  resetters.push(() => {
+    store.setState(initialState, true)
+  })
+  return store
+}) as typeof _create
+
+export const resetAllStores = () => {
+  for (const resetter of resetters) {
+    resetter()
+  }
+}
+```
+
+>切片模式下的重置初始状态。
+
+```tsx
+import create, { StateCreator } from 'zustand'
+
+const resetters: (() => void)[] = []
+
+const initialBearState = { bears: 0 }
+
+interface BearSlice {
+  bears: number
+  addBear: () => void
+  eatFish: () => void
+}
+
+const createBearSlice: StateCreator<
+  BearSlice & FishSlice,
+  [],
+  [],
+  BearSlice
+// 这里接收create传入的参数
+> = (set) => {
+  resetters.push(() => set(initialBearState))
+  return {
+    ...initialBearState,
+    addBear: () => set((state) => ({ bears: state.bears + 1 })),
+    eatFish: () => set((state) => ({ fishes: state.fishes - 1 })),
+  }
+}
+
+const initialStateFish = { fishes: 0 }
+
+interface FishSlice {
+  fishes: number
+  addFish: () => void
+}
+
+const createFishSlice: StateCreator<
+  BearSlice & FishSlice,
+  [],
+  [],
+  FishSlice
+> = (set) => {
+  resetters.push(() => set(initialStateFish))
+  return {
+    ...initialStateFish,
+    addFish: () => set((state) => ({ fishes: state.fishes + 1 })),
+  }
+}
+
+// 切片模式
+const useBoundStore = create<BearSlice & FishSlice>()((...a) => ({
+  ...createBearSlice(...a),
+  ...createFishSlice(...a),
+}))
+
+export const resetAllSlices = () => resetters.forEach((resetter) => resetter())
+
+export default useBoundStore
+```
+
+## [Initialize state with props](https://docs.pmnd.rs/zustand/guides/initialize-state-with-props)
+
+
+## [Slices Pattern](https://docs.pmnd.rs/zustand/guides/slices-pattern)
+
+>可以将`store`切割成一些小的`store`来实现模块化。
+
+```tsx
+import { create } from 'zustand'
+
+const createFishSlice = (set) => ({
+  fishes: 0,
+  addFish: () => set((state) => ({ fishes: state.fishes + 1 })),
+})
+
+const createBearSlice = (set) => ({
+  bears: 0,
+  addBear: () => set((state) => ({ bears: state.bears + 1 })),
+  eatFish: () => set((state) => ({ fishes: state.fishes - 1 })),
+})
+
+// 将这两个store合并成一个
+export const useBoundStore = create((...a) => ({
+  ...createBearSlice(...a),
+  ...createFishSlice(...a),
+
+  // 可以在单个函数中更新多个切片store
+  addBearAndFish: () => {
+    createBearSlice(set).addBear()
+    createFishSlice(set).addFish()
+  },
+}))
+
+
+// 在组件中使用
+import { useBoundStore } from './stores/useBoundStore'
+
+function App() {
+  const bears = useBoundStore((state) => state.bears)
+  const fishes = useBoundStore((state) => state.fishes)
+  const addBear = useBoundStore((state) => state.addBear)
+  return (
+    <div>
+      <h2>Number of bears: {bears}</h2>
+      <h2>Number of fishes: {fishes}</h2>
+      <button onClick={() => addBear()}>Add a bear</button>
+    </div>
+  )
+}
+```
