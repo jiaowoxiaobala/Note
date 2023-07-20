@@ -2462,7 +2462,52 @@ type Format<T extends string> = T extends `${string}%${infer M}${infer R}`
 >创建一个类型，该类型接受一个对象，并使该对象和其中的所有深度嵌套对象唯一，同时保留所有对象的字符串和数字键，以及这些键上的所有属性的值。
 
 ```ts
-todo
+/* _____________ Test Cases _____________ */
+type Equal<X, Y> = (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y
+  ? 1
+  : 2
+  ? true
+  : false;
+
+type IsTrue<T extends true> = T;
+type IsFalse<T extends false> = T;
+
+type Quz = { quz: 4 };
+
+type Foo = { foo: 2; baz: Quz; bar: Quz };
+type Bar = { foo: 2; baz: Quz; bar: Quz & { quzz?: 0 } };
+
+type UniqQuz = DeepObjectToUniq<Quz>;
+type UniqFoo = DeepObjectToUniq<Foo>;
+type UniqBar = DeepObjectToUniq<Bar>;
+
+declare let foo: Foo;
+declare let uniqFoo: UniqFoo;
+
+uniqFoo = foo;
+foo = uniqFoo;
+
+type test1 = IsFalse<Equal<UniqQuz, Quz>>;
+type test2 = IsFalse<Equal<UniqFoo, Foo>>;
+type test3 = IsTrue<Equal<UniqFoo["foo"], Foo["foo"]>>;
+type test4 = IsTrue<Equal<UniqFoo["bar"]["quz"], Foo["bar"]["quz"]>>;
+type test5 = IsFalse<Equal<UniqQuz, UniqFoo["baz"]>>;
+type test6 = IsFalse<Equal<UniqFoo["bar"], UniqFoo["baz"]>>;
+type test7 = IsFalse<Equal<UniqBar["baz"], UniqFoo["baz"]>>;
+type test8 = IsTrue<Equal<keyof UniqBar["baz"], keyof UniqFoo["baz"]>>;
+type test9 = IsTrue<Equal<keyof Foo, keyof UniqFoo & string>>;
+
+
+/* _____________ Your Code Here _____________ */
+
+type DeepObjectToUniq<O extends object> = {
+  [k in keyof O]: O[k] extends object
+    // 遍历对象的每一个key，如果属性是对象类型，那么递归调用DeepObjectToUniq，并且打上唯一标识符
+    ? DeepObjectToUniq<O[k]> & { [unique: symbol]: [O, k] }
+    : O[k];
+
+  // O本身是对象类型，所以要打上唯一标识符
+} & { [unique: symbol]: O };
 ```
 
 ### Length of String 2
@@ -3077,8 +3122,55 @@ type Intersection<T> = T extends [infer F, ...infer R]
 
 ### Binary to Decimal
 
+>将二进制转为十进制。
+
+[看懂二进制](https://zh.wikihow.com/%E7%9C%8B%E6%87%82%E4%BA%8C%E8%BF%9B%E5%88%B6)
+
 ```ts
-todo
+/* _____________ Your Code Here _____________ */
+type Reverse<S extends string> = S extends `${infer F}${infer R}`
+  ? `${Reverse<R>}${F}`
+  : "";
+
+// 从右向左读取数值。每经过一个位置，数值翻倍。最右边的数值是1，向左一位变成2，然后是4，以此类推。
+type Convert<
+  S extends string,
+  // O存储的就是每个位置对应的数值，比如第一个位置是1，第二个位置是2，第三个位置是4，第四个位置是8
+  O extends 1[] = [1],
+  // T存储的是最终的计算结果
+  T extends 1[] = []
+> = S extends `${infer F}${infer R}`
+  ? F extends "1"
+    // 只要当前位置是1，就将O数组的长度加入T数组
+    ? Convert<R, [...O, ...O], [...O, ...T]>
+    : Convert<R, [...O, ...O], T>
+  : T["length"];
+
+// 10 -> 2 * 1 + 1 * 0 = 2
+// 0011 -> 16 * 0 + 8 * 0 + 4 * 1 + 2 * 1 = 3
+// 00000000 -> 128 * 0 + 64 * 0 + 32 * 0 + 16 * 0 + 8 * 0 + 4 * 0 + 2 * 0 + 1 * 0 = 0
+// 11111111 -> 128 * 1 + 64 * 1 + 32 * 1 + 16 * 1 + 8 * 1 + 4 * 1 + 2 * 1 + 1 * 1 = 255
+// 10101010 -> 128 * 1 + 64 * 0 + 32 * 1 + 16 * 0 + 8 * 1 + 4 * 0 + 2 * 1 + 1 * 0 = 170
+type BinaryToDecimal<S extends string> = Convert<Reverse<S>>;
+
+
+/* _____________ Test Cases _____________ */
+type test1 = BinaryToDecimal<"10">; // 2
+type test2 = BinaryToDecimal<"0011">; // 3
+type test3 = BinaryToDecimal<"00000000">; // 0
+type test4 = BinaryToDecimal<"11111111">; // 255
+type test5 = BinaryToDecimal<"10101010">; // 170
+
+
+// 另一种解法
+type BinaryToDecimal<
+  S extends string,
+  T extends 1[] = []
+> = S extends `${infer F}${infer R}`
+  ? F extends "0"
+    ? BinaryToDecimal<R, [...T, ...T]>
+    : BinaryToDecimal<R, [...T, ...T, 1]>
+  : T["length"];
 ```
 
 ### Object Key Paths
@@ -3187,7 +3279,6 @@ todo
 >实现一个类型判断传入的`T`是否为有效日期。
 
 ```ts
-todo
 /* _____________ Test Cases _____________ */
 type test1 = ValidDate<"0102">; // true
 type test2 = ValidDate<"0131">; // true

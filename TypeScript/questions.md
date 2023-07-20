@@ -23,3 +23,8 @@ const infiniteLoop = (): never => {
 ```
 
 协变与逆变
+
+```ts
+
+
+```

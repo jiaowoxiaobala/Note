@@ -6,7 +6,7 @@
 
 >在组件重新渲染之间缓存一个函数（需要配合`memo`使用
 
-```ts
+```tsx
 const cacheFn = useCallback(fn, dependencies)
 ```
 
@@ -33,7 +33,7 @@ const cacheFn = useCallback(fn, dependencies)
 ### Skipping re-rendering of components 
 >在优化渲染性能时，可以缓存传递给子组件的函数。默认行为下，当一个组件重新渲染时，`React`会递归地渲染它的所有子组件
 
-```ts
+```tsx
 import { memo } from 'react';
 
 // 需要配合memo一起使用
@@ -67,7 +67,7 @@ function ProductPage({ productId, referrer, theme }) {
 - `useMemo`：缓存的是调用函数参数的返回值。
 - `useCallback`：缓存额是函数参数本身（不会调用。
 
-```ts
+```tsx
 // Simplified implementation (inside React)
 function useCallback(fn, dependencies) {
   return useMemo(() => fn, dependencies);
@@ -78,7 +78,7 @@ function useCallback(fn, dependencies) {
 
 >有些时候在一个缓存函数里，需要基于上一次状态去更新状态。
 
-```ts
+```tsx
 function TodoList() {
   const [todos, setTodos] = useState([]);
 
@@ -105,7 +105,7 @@ function TodoList() {
 
 >有些时候可能需要在`Effect`中调用一个函数
 
-```ts
+```tsx
 function ChatRoom({ roomId }) {
   const [message, setMessage] = useState('');
 
@@ -173,7 +173,7 @@ function ChatRoom({ roomId }) {
 
 >如果需要写自定义Hook，推荐将它返回的函数都用`useCallback`包裹。
 
-```ts
+```tsx
 function useRouter() {
   const { dispatch } = useContext(RouterStateContext);
 
@@ -236,7 +236,7 @@ const value = useContext(SomeContext)
 ### Passing data deeply into the tree
 >`useContext`返回向`context`传递的值，为了确认`context`的值，`React`会搜索组件树，为这个特定的`context`向上查找最近的`Context.Privder`。
 
-```ts
+```tsx
 // useContext需要和createContext配合使用
 import { createContext, useContext } from 'react';
 
@@ -288,7 +288,7 @@ function Button({ children }) {
 ### Updating data passed via context
 >通过与`state`结合，让`context`的值成为响应式的。
 
-```ts
+```tsx
 function MyPage() {
   // 在组件内部声明一个状态变量theme
   const [theme, setTheme] = useState('dark');
@@ -308,7 +308,7 @@ function MyPage() {
 }
 ```
 
-```ts
+```tsx
 import { createContext, useContext, useState } from 'react';
 
 const CurrentUserContext = createContext(null);
@@ -381,7 +381,7 @@ function Button({ children, onClick }) {
 
 >可以根据需要嵌套和覆盖`provider`。
 
-```ts
+```tsx
 import { createContext, useContext } from 'react';
 
 const ThemeContext = createContext(null);
@@ -442,7 +442,7 @@ function Button({ children }) {
 ### Optimizing re-renders when passing objects and functions
 >可以给`context`传递任何值，包括对象和函数。
 
-```ts
+```tsx
 function MyApp() {
   const [currentUser, setCurrentUser] = useState(null);
 
@@ -499,7 +499,7 @@ function MyApp() {
 
 - 可能在组件树中有一个没有设置`value`的`provider`。只有在上层没有匹配到`provider`时，才会使用`createContext`的默认值，如果存在`<SomeContext.Provider>`在上层，调用`useContext`的组件会接收到`undefined`作为context的值。
 
-```ts
+```tsx
 // 如果没有传递value，相当于value={undefined}
 <ThemeContext.Provider>
    <Button />
@@ -515,7 +515,7 @@ function MyApp() {
 
 >用于在自定义Hook加标签（`DevTools`调试。
 
-```ts
+```tsx
 useDebugValue(value, format?)
 ```
 
@@ -537,7 +537,7 @@ useDebugValue(value, format?)
 
 >在自定义Hook中调用`useDebugValue`，可以在开发工具显示只读的调试值。
 
-```ts
+```tsx
 import { useDebugValue } from 'react';
 
 function useOnlineStatus() {
@@ -551,7 +551,7 @@ function useOnlineStatus() {
 
 >可以传递一个格式化函数作为`useDebugValue`。
 
-```ts
+```tsx
 // 这个格式化函数接收useDebugValue的第一个参数
 useDebugValue(date, date => date.toDateString());
 ```
@@ -565,7 +565,7 @@ useDebugValue(date, date => date.toDateString());
 
 >用于延迟更新视图的一部分。（延迟更新某个值的渲染
 
-```ts
+```tsx
 const deferredValue = useDeferredValue(value)
 ```
 
@@ -600,7 +600,7 @@ const deferredValue = useDeferredValue(value)
 >配合`Suspense`使用的例子。
 
 
-```ts
+```tsx
 // 这个例子中，每次请求搜索数据时，都会先显示loading...
 export default function App() {
   const [query, setQuery] = useState('');
@@ -640,7 +640,7 @@ export default function App() {
 
 >上面例子中，感知不到最新查询的结果列表仍在加载，如果加载需要一段时间，可能会导致用户困惑，为了让用户更清楚地看到结果列表与最近的查询不匹配，可以添加一个可视化的展示效果。
 
-```ts
+```tsx
 import { Suspense, useState, useDeferredValue } from 'react';
 import SearchResults from './SearchResults.js';
 
@@ -673,7 +673,7 @@ export default function App() {
 >可以使用`useDeferredValue`作为一种性能优化，当有一部分UI需要延迟重新渲染时，这是有用的。
 
 
-```ts
+```tsx
 // App组件中有个"慢"列表在每次敲击键盘时都要重新渲染
 function App() {
   const [text, setText] = useState('');
@@ -717,7 +717,7 @@ function App() {
 
 >在组件中执行副作用。（浏览器绘制屏幕之后）
 
-```ts
+```tsx
 useEffect(setup, dependencies)
 ```
 
@@ -753,7 +753,7 @@ useEffect(setup, dependencies)
 - 依赖项发生变化后每次重新渲染期间，先执行一次清理函数，再执行一次副作用函数。
 - 组件从页面中移除时，执行一次清理函数
 
-```ts
+```tsx
 import { useEffect } from 'react';
 import { createConnection } from './chat.js';
 
@@ -776,7 +776,7 @@ function ChatRoom({ roomId }) {
 
 >为组件所依赖的常见行为提取一些自定义`Hooks`。
 
-```ts
+```tsx
 function useChatRoom({ serverUrl, roomId }) {
   useEffect(() => {
     const options = {
@@ -806,7 +806,7 @@ function ChatRoom({ roomId }) {
 ### Fetching data with Effects
 >可以使用Effect为组件去请求网络数据。
 
-```ts
+```tsx
 import { useState, useEffect } from 'react';
 import { fetchBio } from './api.js';
 
@@ -837,7 +837,7 @@ export default function Page() {
 
 >任何使用在`Effect`中的响应值都必须作为一个依赖声明。当依赖性是一个空数组时，组件的`props`和`state`改变了也不会重新执行，如果没有传递依赖性数组，每次组件重新渲染期间，`Effect`都会重新执行。
 
-```ts
+```tsx
 function ChatRoom({ roomId }) { // This is a reactive value
   const [serverUrl, setServerUrl] = useState('https://localhost:1234'); // This is a reactive value too
 
@@ -893,7 +893,7 @@ function ChatRoom() {
 
 >当需要在`Effect`中基于上一次状态来更新状态。
 
-```ts
+```tsx
 function Counter() {
   const [count, setCount] = useState(0);
   // 这会导致，每一次count改变，Effect都重新执行
@@ -926,7 +926,7 @@ export default function Counter() {
 
 >如果`Effect`依赖的是一个对象或者函数（在渲染期间创建的），这可能会造成Effect频繁执行。
 
-```ts
+```tsx
 const serverUrl = 'https://localhost:1234';
 
 function ChatRoom({ roomId }) {
@@ -975,7 +975,7 @@ function ChatRoom({ roomId }) {
 
 >如果应用使用服务端渲染，你的组件将渲染在两个不同的环境，在服务端，它将会渲染初始的`HTML`，在客户端，`React`将会再一次执行渲染代码，以便将事件处理附加到`HTML`。
 
-```ts
+```tsx
 function MyComponent() {
   const [didMount, setDidMount] = useState(false);
 
@@ -1018,7 +1018,7 @@ function MyComponent() {
 
 >可以生成一个唯一的ID。
 
-```ts
+```tsx
 const id = useId()
 ```
 
@@ -1044,7 +1044,7 @@ const id = useId()
 
 >一个组件可能会在页面上渲染多次，但是`ID`必须是唯一的，使用`useId`生成唯一的`ID`。
 
-```ts
+```tsx
 import { useId } from 'react';
 
 function PasswordField() {
@@ -1082,7 +1082,7 @@ export default function App() {
 
 >为多个相关元素生成`ID`，调用`useId`来为它们生成共同的前缀。
 
-```ts
+```tsx
 import { useId } from 'react';
 
 export default function Form() {
@@ -1103,7 +1103,7 @@ export default function Form() {
 
 >如果在单个页面上渲染多个独立的`React`应用程序，在`createRoot`或`hydrateRoot`调用中将`identifierPrefix`作为选项传递, 确保了由两个不同应用程序生成的`ID`永远不会冲突，因为使用`useId`生成的每个`ID`都将以指定的不同前缀开头。
 
-```ts
+```tsx
 // index.js
 import { createRoot } from 'react-dom/client';
 import App from './App.js';
@@ -1160,7 +1160,7 @@ export default function App() {
 
 >它可以自定义由`ref`暴露出来的内容。
 
-```ts
+```tsx
 useImperativeHandle(ref, createHandle, dependencies?)
 ```
 
@@ -1182,7 +1182,7 @@ useImperativeHandle(ref, createHandle, dependencies?)
 
 >默认情况下，函数式组件无法暴露`DOM`节点给父组件，需要使用`forwardRef`转发。
 
-```ts
+```tsx
 import { forwardRef } from 'react';
 
 // MyInput的ref会接收input DOM节点
@@ -1229,7 +1229,7 @@ const MyInput = forwardRef(function MyInput(props, ref) {
 
 >自定义暴露出来的方法不一定要匹配DOM节点的方法，可以自定义内容。
 
-```ts
+```tsx
 import { forwardRef, useRef, useImperativeHandle } from 'react';
 
 const CommentList = forwardRef(function CommentList(props, ref) {
@@ -1266,7 +1266,7 @@ const CommentList = forwardRef(function CommentList(props, ref) {
 
 >它是`useEffect`的一个版本，在DOM改变之前触发副作用。
 
-```ts
+```tsx
 useInsertionEffect(setup, dependencies?)
 ```
 
@@ -1294,7 +1294,7 @@ useInsertionEffect(setup, dependencies?)
 - 行内样式，例如`<div style={{ opacity: 1 }}>`（可以使用`useInsertionEffect`解决
 - 运行时注入`style`标签（不被推荐
 
-```ts
+```tsx
 // 调用useInsertionEffect在DOM更新前插入样式
 // Inside your CSS-in-JS library
 let isInserted = new Set();
@@ -1340,7 +1340,7 @@ function useCSS(rule) {
 >它是`useEffect`的一个版本，在浏览器重新绘制屏幕之前触发副作用。
 
 
-```ts
+```tsx
 useLayoutEffect(setup, dependencies?)
 ```
 
@@ -1367,7 +1367,7 @@ useLayoutEffect(setup, dependencies?)
 
 >大多数组件都不需要在渲染时知道它们在屏幕中的定位和尺寸，它们仅仅返回`JSX`，浏览器计算它们的布局绘制屏幕。
 
-```ts
+```tsx
 // 这个例子中需要在浏览器绘制屏幕前，获取到元素的高度
 function Tooltip() {
   const ref = useRef(null);
@@ -1402,7 +1402,7 @@ function Tooltip() {
 
 >在组件重新渲染之间缓存计算结果。（由于每一次状态更新都会导致组件重新渲染
 
-```ts
+```tsx
 const cachedValue = useMemo(calculateValue, dependencies)
 ```
 
@@ -1428,7 +1428,7 @@ const cachedValue = useMemo(calculateValue, dependencies)
 
 >`useCache`在重新渲染之间缓存一个计算结果，直到它的依赖性发生变化
 
-```ts
+```tsx
 // 如果这个TodoList更新了状态，或者接受了一个新的props，这个filterTodos函数就会重新执行
 // 通常这不是一个问题，因为大多数计算都是非常快的，如果filter了一个大的数组，或者做了一些"昂贵"的计算
 // 你可能就想跳过它（如果数据没有发生改变
@@ -1449,7 +1449,7 @@ function TodoList({ todos, tab, theme }) {
 
 >某些情况下，`useMemo`能优化子组件重新渲染的性能问题，默认情况下当一个组件重新渲染时，`React`会递归地渲染它的所有子组件
 
-```ts
+```tsx
 // 这里当TodoList因为theme重新渲染时，List组件也会重新渲染
 // 如果这个重新渲染很慢，就需要告诉List组件跳过这次渲染
 function TodoList({ todos, tab, theme }) {
@@ -1471,7 +1471,7 @@ const List = useMemo(function List({ items })) {
 
 ### Memoizing a dependency of another Hook
 
-```ts
+```tsx
 // 假设这个visibleItems依赖一个直接在组件内部创建的对象
 function Dropdown({ allItems, text }) {
 
@@ -1511,7 +1511,7 @@ function Dropdown({ allItems, text }) {
 
 ### Memoizing a function
 
-```ts
+```tsx
 function ProductPage({ productId, referrer }) {
   // 和对象一样，每次组件渲染时，这个函数都会重新声明，每一次渲染都是一个新的函数
   // 由于Form是被memo包裹的，当这个函数不变时是不会重新渲染的
@@ -1561,7 +1561,7 @@ function Page({ productId, referrer }) {
 
 >不能在循环中直接调用`Hooks`
 
-```ts
+```tsx
 function ReportList({ items }) {
   return (
     <article>
@@ -1624,7 +1624,7 @@ const Report = memo(function Report({ item }) {
 
 >给组件添加一个`reducer`。
 
-```ts
+```tsx
 const [state, dispatch] = useReducer(reducer, initialArg, init?)
 ```
 
@@ -1654,7 +1654,7 @@ const [state, dispatch] = useReducer(reducer, initialArg, init?)
 
 >通过`useReducer`返回的`dispatch function`可以更新状态并触发重新渲染，接收一个"行为"作为唯一的参数。
 
-```ts
+```tsx
 const [state, dispatch] = useReducer(reducer, { age: 42 })
 
 function handleClick() {
@@ -1683,7 +1683,7 @@ function handleClick() {
 
 >`useReducer`和`useState`相似，但是它可以把状态更新逻辑移到组件外部的单个函数中。
 
-```ts
+```tsx
 import { useReducer } from 'react';
 
 function reducer(state, action) {
@@ -1718,7 +1718,7 @@ export default function Counter() {
 ### Writing the reducer function
 
 
-```ts
+```tsx
 import { useReducer } from 'react';
 
 function reducer(state, action) {
@@ -1777,7 +1777,7 @@ export default function Form() {
 
 >`React`存储初始状态一次，后续的渲染中将忽视。
 
-```ts
+```tsx
 function createInitialState(username) {
   // ...
 }
@@ -1805,7 +1805,7 @@ function TodoList({ username }) {
 
 >状态像一个快照，更新状态在下一次渲染中带有新的状态，但是不会影响这个状态在已经运行的事件处理程序中。
 
-```ts
+```tsx
 function handleClick() {
   console.log(state.age);  // 42
 
@@ -1830,7 +1830,7 @@ console.log(nextState); // { age: 43 }
 
 >如果更新的状态和上一次状态一样，`React`会忽视这次更新。
 
-```ts
+```tsx
 function reducer(state, action) {
   switch (action.type) {
     case 'incremented_age': {
@@ -1874,7 +1874,7 @@ function reducer(state, action) {
 
 >当返回新的状态时，确保复制已有的字段。
 
-```ts
+```tsx
 function reducer(state, action) {
   switch (action.type) {
     case 'incremented_age': {
@@ -1892,7 +1892,7 @@ function reducer(state, action) {
 
 >可能在某次case忘记返回新的状态了，如果没有匹配到任何case，可以直接抛出一个错误。
 
-```ts
+```tsx
 function reducer(state, action) {
   switch (action.type) {
     case 'incremented_age': {
@@ -1910,7 +1910,7 @@ function reducer(state, action) {
 
 >不要在渲染期间更新状态。
 
-```ts
+```tsx
 // Wrong: calls the handler during render
 return <button onClick={handleClick()}>Click me</button>
 
@@ -1933,7 +1933,7 @@ return <button onClick={(e) => handleClick(e)}>Click me</button>
 
 >引用一个不需要渲染的值。
 
-```ts
+```tsx
 const ref = useRef(initialValue)
 ```
 
@@ -1962,7 +1962,7 @@ const ref = useRef(initialValue)
 - 可以在重新渲染期间存储信息（不像普通对象，每次渲染都会重置），引用的值被持久化。
 - 改变它不会触发重新渲染（不像`state`，会触发重新渲染）
 
-```ts
+```tsx
 import { useRef } from 'react';
 
 export default function Counter() {
@@ -1986,7 +1986,7 @@ export default function Counter() {
 
 >通过`ref`操作`DOM`是非常常见的，`React`内置了对它的支持。
 
-```ts
+```tsx
 import { useRef } from 'react';
 
 export default function Form() {
@@ -2010,7 +2010,7 @@ export default function Form() {
 
 Examples of manipulating the DOM with useRef
 
-```ts
+```tsx
 import { forwardRef, useRef } from 'react';
 
 // 通过forwardRef向父组件暴露ref
@@ -2039,7 +2039,7 @@ export default function Form() {
 ### Avoiding recreating the ref contents
 >`React`会保存首次的ref初始值，并在后续渲染中忽视它。
 
-```ts
+```tsx
 function Video() {
   // 这里new VideoPlayer的结果只会在首次渲染时使用，但是每次渲染都会调用这个方法
   const playerRef = useRef(new VideoPlayer());
@@ -2063,7 +2063,7 @@ function Video() {
 
 >无法在函数式组件上直接使用`ref`。
 
-```ts
+```tsx
 import { forwardRef } from 'react';
 
 // 可以通过forwardRef，把ref转发到组件内部的DOM节点上
@@ -2100,7 +2100,7 @@ const [state, setState] = useState(initialState)
 
 - `initialState`：初始值有两种情况，函数和非函数。当初始值是函数时`React`会在组件初始化时调用这个函数，并将它的返回值存储起来，这个函数需要是纯函数（没有副作用）。
 
-```ts
+```tsx
 // 任意类型的值
 const [age, setAge] = useState(18)
 
@@ -2122,7 +2122,7 @@ const [todos, setTodos] = useState(() => createTodos())
 
 >可以直接给`set function`传递更新的状态，也可以传入一个函数从上一次状态计算更新的状态。
 
-```ts
+```tsx
 const [name, setName] = useState('bow')
 const [age, setAge] = useState(18)
 
@@ -2141,7 +2141,7 @@ function handleClick () {
 
 - 更新函数会在下一次渲染更新状态，如果在调用更新函数之后就读取这个状态，仍然会得到更新前的状态(`old value`)
 
-```ts
+```tsx
 const [age, setAge] = useState(18)
 
 setAge(19)
@@ -2150,7 +2150,7 @@ console.log(age) // 18
 ```
 - 如果更新的状态和旧状态一致（`React`通过`Object.is`比较），那么会跳过重新渲染
 
-```ts
+```tsx
 const [age, setAge] = useState(18)
 
 setAge(18) // 忽视这次状态变化
@@ -2167,7 +2167,7 @@ setPerson({ ...person, age: 19 }) // 更新状态，触发重渲染
 
 - `React`批量更新状态，`React`在所有的事件处理程序运行并调用它们的`set function`后更新屏幕，可以防止在一个事件中多次重新渲染，在少数情况下可能需要强制`React`尽早的更新视图，比如访问`DOM`，可以使用`flushSync`
 
-```ts
+```tsx
 const [age, setAge] = useState(18)
 
 const handleClick = () => {
@@ -2193,7 +2193,7 @@ const handleClick = () => {
 
 ### Updating state based on the previous state
 
-```ts
+```tsx
 // 假设age = 42，这里虽然调用了三次setAge，在下次更新时，age仍然是43
 function handleClick() {
   setAge(age + 1); // setAge(42 + 1)
@@ -2212,7 +2212,7 @@ function handleClick() {
 ### Updating objects and arrays in state
 >在`React`中状态被认为是只读的，因此在更新状态为数组或对象时，应该直接替换它们，而不是修改它们。
 
-```ts
+```tsx
 const [person, setPerson] = useState({
   age: 18
 })
@@ -2233,7 +2233,7 @@ setPerson({
 
 >`React`会保存初始状态并在下一次渲染时忽略它。
 
-```ts
+```tsx
 // Bad
 function TodoList() {
   // 这个例子中，虽然createInitialTodos()的结果只会被使用在初始渲染中
@@ -2252,7 +2252,7 @@ function TodoList() {
 ### Resetting state with a key
 >除了在渲染列表时，`key`很常见，它还有另一个用途。可以通过给组件传递一个不同的`key`重置组件的状态
 
-```ts
+```tsx
 import { useState } from 'react';
 
 export default function App() {
@@ -2295,7 +2295,7 @@ function Form() {
 
 - 尽可能在更新事件中处理程序的所有相关状态
 
-```ts
+```tsx
 import { useState } from 'react';
 
 function CountLabel({ count }) {
@@ -2336,7 +2336,7 @@ function App() {
 
 >`state`像一个快照，更新状态请求在另一个渲染中是一个新的状态，但是它不会影响这个状态在已经执行的事件处理程序中。
 
-```ts
+```tsx
 function handleClick() {
   console.log(count);  // 0
 
@@ -2361,7 +2361,7 @@ console.log(nextCount); // 1
 ### I’ve updated the state, but the screen doesn’t update
 >如果你的状态更新和上一个状态是相等的，那么`React`会忽视它，内部通过使用`Object.is`做比较，这通常发生在你直接改变一个对象或数组时。
 
-```ts
+```tsx
 // Bad
 obj.x = 10
 
@@ -2377,7 +2377,7 @@ setObj({
 ### I’m getting an error: “Too many re-renders” 
 >`React`限制渲染次数为了防止无线循环，通常是在渲染期间无条件的设置状态导致。
 
-```ts
+```tsx
 // Wrong: calls the handler during render
 return <button onClick={handleClick()}>Click me</button>
 
@@ -2394,7 +2394,7 @@ return <button onClick={(e) => handleClick(e)}>Click me</button>
 ### I’m trying to set state to a function, but it gets called instead 
 >不能直接传递一个函数作为状态，当传递一个函数时，`React`会假设它是一个初始化函数，因此会调用这个函数存储它的返回值。通常需要加上`() =>`
 
-```ts
+```tsx
 // Bad
 const [fn, setFn] = useState(someFunction);
 
@@ -2418,7 +2418,7 @@ function handleClick() {
 
 >用于订阅外部的数据（store。
 
-```ts
+```tsx
 const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot?)
 ```
 
@@ -2449,7 +2449,7 @@ const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot?
 
 >大多数`React`组件仅仅只是从它们的`props、state、context`读取数据，有些时候组件可能需要从`React`之外的存储中读取一些随时变化的数据。
 
-```ts
+```tsx
 // This is an example of a third-party store
 // that you might need to integrate with React.
 
@@ -2506,7 +2506,7 @@ export default function TodosApp() {
 
 >另一个使用`useSyncExternalStore`的场景是订阅通过浏览器暴露出来的一些随时可能改变的数据。
 
-```ts
+```tsx
 import { useSyncExternalStore } from 'react';
 
 function getSnapshot() {
@@ -2532,7 +2532,7 @@ export default function ChatIndicator() {
 
 >将逻辑提取到自定义Hook中，这可以在不同组件使用相同的外部`store`。
 
-```ts
+```tsx
 import { useSyncExternalStore } from 'react';
 
 export function useOnlineStatus() {
@@ -2557,7 +2557,7 @@ function subscribe(callback) {
 
 - 如果去连接第三方库，需要它们的数据在服务端和客户端匹配。
 
-```ts
+```tsx
 // 为了解决上面的问题，可以使用第三个参数
 import { useSyncExternalStore } from 'react';
 
@@ -2591,7 +2591,7 @@ function subscribe(callback) {
 
 >`subscribe function`被定义在了组件内部，并且每次渲染都是不同的。
 
-```ts
+```tsx
 function ChatIndicator() {
   const isOnline = useSyncExternalStore(subscribe, getSnapshot);
   
@@ -2635,7 +2635,7 @@ function ChatIndicator({ userId }) {
 
 >在不阻塞UI的情况下更新状态。（状态更新分为紧急更新和过渡`transition`更新）
 
-```ts
+```tsx
 const [isPending, startTransition] = useTransition()
 ```
 
@@ -2657,7 +2657,7 @@ const [isPending, startTransition] = useTransition()
 
 >`useTransition`返回的`startTransition`函数允许将状态更新标记为`transition`状态。
 
-```ts
+```tsx
 function TabContainer() {
   const [isPending, startTransition] = useTransition();
   const [tab, setTab] = useState('about');
@@ -2706,7 +2706,7 @@ function TabContainer() {
 
 >也可以通过`useTransition`调用来更新父组件的状态。
 
-```ts
+```tsx
 import { useTransition } from 'react';
 
 // 选项卡按钮
@@ -2732,7 +2732,7 @@ export default function TabButton({ children, isActive, onClick }) {
 
 >可以使用`useTransition`返回的`isPending`来向告知用户`transition`正在进行中。例如，选项卡按钮可以有个特殊视觉效果。
 
-```ts
+```tsx
 function TabButton({ children, isActive, onClick }) {
   const [isPending, startTransition] = useTransition();
   // ...
@@ -2769,7 +2769,7 @@ function TabButton({ children, isActive, onClick }) {
 - 用`useDeferredValue`包裹这个状态变量，它会自动触发非阻塞的重新渲染。
 
 
-```ts
+```tsx
 const [text, setText] = useState('');
 // ...
 function handleChange(e) {
@@ -2786,7 +2786,7 @@ return <input value={text} onChange={handleChange} />;
 
 >在`transition`中包装一个状态更新时，需要确保发生在`startTransition`调用阶段。
 
-```ts
+```tsx
 // bad
 // 传递给startTransition的函数必须是同步的
 startTransition(() => {
@@ -2827,7 +2827,7 @@ startTransition(() => {
 
 >传递给`startTransition`的函数不会被延迟执行，`React`会立即执行函数，但是在它运行期间所有安排的状态更新都会被标记为`transition`状态。
 
-```ts
+```tsx
 // 这段代码会立即打印1，2，3
 console.log(1);
 startTransition(() => {
