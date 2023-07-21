@@ -3515,8 +3515,80 @@ type UnionReplace<T, U extends [any, any][]> = U extends [
 
 ### FizzBuzz 
 
+>打印整数`1`到`N``，但以下情况除外：:
+
+- 如果整数可被`3`整除，则打印`Fizz`;
+- 如果整数能被`5`整除，则打印`Buzz`;
+- 如果整数可以被`3`和`5`整除，则打印`FizzBuzz`。
+
 ```ts
-todo
+/* _____________ Test Cases _____________ */
+type test1 = FizzBuzz<1>; // ['1']
+type test2 = FizzBuzz<5>; // ['1', '2', 'Fizz', '4', 'Buzz']
+type test3 = FizzBuzz<20>; // ['1','2','Fizz','4','Buzz','Fizz','7','8','Fizz','Buzz','11','Fizz','13','14','FizzBuzz','16','17','Fizz','19','Buzz']
+type test4 = FizzBuzz<100>; // ['1','2','Fizz','4','Buzz','Fizz','7','8','Fizz','Buzz','11','Fizz','13','14','FizzBuzz','16','17','Fizz','19','Buzz','Fizz','22','23','Fizz','Buzz','26','Fizz','28','29','FizzBuzz','31','32','Fizz','34','Buzz','Fizz','37','38','Fizz','Buzz','41','Fizz','43','44','FizzBuzz','46','47','Fizz','49','Buzz','Fizz','52','53','Fizz','Buzz','56','Fizz','58','59','FizzBuzz','61','62','Fizz','64','Buzz','Fizz','67','68','Fizz','Buzz','71','Fizz','73','74','FizzBuzz','76','77','Fizz','79','Buzz','Fizz','82','83','Fizz','Buzz','86','Fizz','88','89','FizzBuzz','91','92','Fizz','94','Buzz','Fizz','97','98','Fizz','Buzz']
+
+
+/* _____________ Your Code Here _____________ */
+// 构建长度为N的数组
+type NewArray<N extends number, T extends 1[] = []> = T["length"] extends N
+  ? T
+  : NewArray<N, [...T, 1]>;
+
+// 两数相减
+type Sub<A extends number, B extends number> = NewArray<A> extends [
+  ...NewArray<B>,
+  ...infer R
+]
+  ? R["length"]
+  : never;
+
+// 两数相除，就是A不断减去B，直到A为0
+// 如果结果为never则不能被整除
+type Div<
+  A extends number,
+  B extends number,
+  Count extends 1[] = []
+> = A extends 0 ? Count["length"] : Div<Sub<A, B>, B, [...Count, 1]>;
+
+// 判断是否能整除3或5，得到对应的字符串
+type getMember<T extends number> = Div<T, 3> extends never
+  ? Div<T, 5> extends never
+    ? `${T}`
+    : "Buzz"
+  : Div<T, 5> extends never
+  ? "Fizz"
+  : "FizzBuzz";
+
+type FizzBuzz<
+  N extends number,
+  Count extends string[] = []
+> = Count["length"] extends N
+  ? Count
+  : FizzBuzz<N, [...Count, getMember<[...Count, 1]["length"]>]>;
+
+
+// 另一种思路
+type FizzBuzz<
+  N extends number,
+  R extends string[] = [],
+  // 标记是3的倍数，如果长度为3则重置（每次遍历+1，长度为3时则表示是3的倍数
+  Three extends any[] = [0],
+  // 标记是5的倍数，如果长度为5则重置（每次遍历+1，长度为5时则表示是5的倍数
+  Five extends any[] = [0]
+> = R["length"] extends N
+  ? R
+  // 表示能被3和5整除
+  : [Three["length"], Five["length"]] extends [3, 5]
+  ? FizzBuzz<N, [...R, "FizzBuzz"], [0], [0]>
+  // 表示能被3整除
+  : Three["length"] extends 3
+  // 重置Three
+  ? FizzBuzz<N, [...R, "Fizz"], [0], [...Five, 0]>
+  : Five["length"] extends 5
+  // 能被5整除，重置Five
+  ? FizzBuzz<N, [...R, "Buzz"], [...Three, 0], [0]>
+  : FizzBuzz<N, [...R, `${[...R, 0]["length"]}`], [...Three, 0], [...Five, 0]>;
 ```
 
 ### Run-length encoding
@@ -3936,7 +4008,6 @@ type Slice<
 
 >实现动态参数化的柯里化函数的类型版本。
 
-
 ```ts
 /* _____________ Test Cases _____________ */
 const curried1 = DynamicParamsCurrying(
@@ -4001,10 +4072,73 @@ type Curry<A extends unknown[], R> = <Args extends unknown[]>(
   : never;
 ```
 
-### Sum 
+### Sum
+
+>实现类型版本的两数之和。
 
 ```ts
-todo
+/* _____________ Test Cases _____________ */
+type test1 = TwoSum<[3, 3], 6>; // true
+type test2 = TwoSum<[3, 2, 4], 6>; // true
+type test3 = TwoSum<[2, 7, 11, 15], 15>; // false
+type test4 = TwoSum<[2, 7, 11, 15], 9>; // true
+type test5 = TwoSum<[1, 2, 3], 0>; // false
+type test6 = TwoSum<[1, 2, 3], 1>; // false
+type test7 = TwoSum<[1, 2, 3], 2>; // false
+type test8 = TwoSum<[1, 2, 3], 3>; // true
+type test9 = TwoSum<[1, 2, 3], 4>; // true
+type test10 = TwoSum<[1, 2, 3], 5>; // true
+type test11 = TwoSum<[1, 2, 3], 6>; // false
+type test12 = TwoSum<[3, 2, 0], 2>; // true
+
+
+/* _____________ Your Code Here _____________ */
+type NewArray<N extends number, T extends 1[] = []> = T["length"] extends N
+  ? T
+  : NewArray<N, [...T, 1]>;
+
+type GetRes<
+  L extends number,
+  T extends number[],
+  U extends number
+> = T extends [infer F extends number, ...infer Res extends number[]]
+  // 判断两个数相加是否等于目标值
+  ? [...NewArray<L>, ...NewArray<F>] extends NewArray<U>
+    ? true
+    : GetRes<L, Res, U>
+  : false;
+
+type TwoSum<T extends number[], U extends number> = T extends [
+  infer F extends number,
+  ...infer Res extends number[]
+] 
+  // 暴力枚举，每遍历到一个成员，都拿它和后面的成员相加，看是否等于目标值
+  ? GetRes<F, Res, U> extends true
+    ? true
+    : TwoSum<Res, U>
+  : false;
+
+
+// 另一种解法
+type NewArray<N extends number, T extends 1[] = []> = T["length"] extends N
+  ? T
+  : NewArray<N, [...T, 1]>;
+
+type TwoSum<T extends number[], U extends number> = T extends [
+  infer F extends number,
+  ...infer Rest extends number[]
+] 
+  // 先用目标值"减去"遍历到的这个数，等到另一个数R
+  ? NewArray<U> extends [...NewArray<F>, ...infer R]
+    // 再去剩余的成员中找R
+    ? R["length"] extends Rest[number]
+      ? true
+      // 剩余成员中没有匹配R的，递归剩余的成员
+      : TwoSum<Rest, U>
+    // 如果目标值少于遍历到的这个数，递归剩余的成员
+    : TwoSum<Rest, U>
+  // 遍历完都还没找到，返回false
+  : false;
 ```
 
 ### Multiply 
