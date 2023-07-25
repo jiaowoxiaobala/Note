@@ -4222,10 +4222,88 @@ type test19 = Sort<[2, 4, 7, 6, 6, 6, 5, 8, 9], true>; // [9, 8, 7, 6, 6, 6, 5, 
 
 ```
 
-### DistributeUnions 
+### DistributeUnions
+
+>实现分布式联合类型，将包含联合类型的数据结构类型转换为允许的不包含任何联合的所有可能类型的数据结构的联合。数据结构可以是任何嵌套级别上的对象和元组的任意组合
 
 ```ts
-todo
+/* _____________ Test Cases _____________ */
+
+// Already distributed unions should stay the same:
+type test1 = DistributeUnions<1>; // 1
+type test2 = DistributeUnions<string>; // string
+type test3 = DistributeUnions<1 | 2>; // 1 | 2
+type test4 = DistributeUnions<"b" | { type: "a" } | [1]>; // 'b' | { type: 'a' } | [1]
+
+// tuples:
+type test5 = DistributeUnions<[1 | 2, 3]>; // [1, 3] | [2, 3]
+type test6 = DistributeUnions<[1 | 2, "a" | "b"]>; // [1, 'a'] | [1, 'b'] | [2, 'a'] | [2, 'b']
+type test7 = DistributeUnions<[1 | 2, "a" | "b", false | true]>; // | [1, 'a', false] | [1, 'a', true] | [1, 'b', false] | [1, 'b', true] | [2, 'a', false] | [2, 'a', true] | [2, 'b', false] | [2, 'b', true]
+
+// objects
+type test8 = DistributeUnions<{ x: "a" | "b"; y: "c" | "d" }>; // { x: 'a'; y: 'c' } | { x: 'a'; y: 'd' } | { x: 'b'; y: 'c' } | { x: 'b'; y: 'd' }
+type test9 = DistributeUnions<
+  { type: "a"; value: number | string } | { type: "b"; value: boolean }
+>; // { type: 'a'; value: string } | { type: 'a'; value: number } | { type: 'b'; value: false } | { type: 'b'; value: true }
+type test10 = DistributeUnions<
+  | {
+      type: "a";
+      option: { kind: "none" } | { kind: "some"; value: "x" | "y" };
+    }
+  | { type: "b"; msg: string }
+>;
+// { type: 'b'; msg: string } | { type: 'a'; option: { kind: 'none' } } | { type: 'a'; option: { kind: 'some'; value: 'x' } } | { type: 'a'; option: { kind: 'some'; value: 'y' } }
+
+// mixed structures:
+type test11 = DistributeUnions<
+  [false | true, { value: "a" | "b" }, { x: { y: 2 | 3 } }]
+>; // [false, { value: 'a' }, { x: { y: 2 } }] | [false, { value: 'a' }, { x: { y: 3 } }] | [false, { value: 'b' }, { x: { y: 2 } }] | [false, { value: 'b' }, { x: { y: 3 } }] | [true, { value: 'a' }, { x: { y: 2 } }] | [true, { value: 'a' }, { x: { y: 3 } }] | [true, { value: 'b' }, { x: { y: 2 } }] | [true, { value: 'b' }, { x: { y: 3 } }]
+type test12 = DistributeUnions<
+  17 | [10 | { value: "a" | "b" }, { x: { y: 2 | 3 } }]
+>;
+// | 17
+// | [10, { x: { y: 2 } }]
+// | [10, { x: { y: 3 } }]
+// | [{ value: 'a' }, { x: { y: 2 } }]
+// | [{ value: 'a' }, { x: { y: 3 } }]
+// | [{ value: 'b' }, { x: { y: 2 } }]
+// | [{ value: 'b' }, { x: { y: 3 } }]
+
+
+/* _____________ Your Code Here _____________ */
+// 处理元组类型
+type HandleTuple<T extends unknown[]> = T extends [infer F, ...infer R]
+  // 递归处理F，因为F有可能是元组或对象类型
+  ? BuildTuple<DistributeUnions<F>, R>
+  : [];
+
+// 构建元组类型
+type BuildTuple<F, R extends unknown[]> = F extends F ? [F, ...HandleTuple<R>] : never
+
+// 构建对象类型，处理V为联合类型的场景
+// BuildObject<'name', 1 | 2> => { name: 1 } | { name: 2 }
+type BuildObject<K, V> = V extends V ? { [P in K & string]: V } : never;
+
+// 处理对象类型
+type HandleObject<T extends object, K extends keyof T = keyof T> = [K] extends [
+  never
+]
+  ? {}
+  : // 触发分布联合类型，取到每一个key
+  K extends K
+  ? // 用key构建对象，再与剩余key构建的对象交叉
+    BuildObject<K, DistributeUnions<T[K]>> & HandleObject<Omit<T, K>>
+  : never;
+
+type DistributeUnions<T> = T extends unknown[]
+  ? HandleTuple<T>
+  : T extends object
+  ? Merge<HandleObject<T>>
+  : T;
+
+// Merge<({ name: string } | { name: number }) & ({ age: number } | { age: string })>
+// { name: string, age: number } | { name: string, age: string } | { name: number, age: number } | { name: number, age: string }
+type Merge<O> = { [K in keyof O]: O[K] };
 ```
 
 ### Assert Array Index
