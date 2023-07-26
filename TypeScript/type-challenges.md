@@ -4318,8 +4318,34 @@ todo
 todo
 ```
 
-### Subtract 
+### Subtract
+
+>实现类型减法。
 
 ```ts
-todo
+/* _____________ Test Cases _____________ */
+type test1 = Subtract<1, 1>; // 0
+type test2 = Subtract<2, 1>; // 1
+type test3 = Subtract<1, 2>; // never
+// @ts-expect-error
+type test4 = Subtract<1000, 999>; // 1
+
+
+/* _____________ Your Code Here _____________ */
+// 通过数字字面量构建对应长度的元组类型
+type NewArray<N extends number, T extends 1[] = []> = T["length"] extends N
+  ? T
+  : NewArray<N, [...T, 1]>;
+
+// M => minuend, S => subtrahend
+// M = 2, S = 1
+// [1, 1] extends [1, ...infer R] ? R['length'] : never
+// R = [1]
+type Subtract<M extends number, S extends number> = NewArray<M> extends [
+  ...NewArray<S>,
+  // 匹配出剩余成员的类型
+  ...infer R
+]
+  ? R["length"]
+  : never;
 ```
