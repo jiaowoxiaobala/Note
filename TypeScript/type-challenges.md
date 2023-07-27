@@ -3268,10 +3268,77 @@ type ObjectKeyPaths<
 
 ### Two Sum
 
->实现类型版本的两数之和。
+> 实现`Sum< a, B>`类型，对两个非负整数求和，并以字符串形式返回和。数字可以指定为字符串、数字或`bigint`。
 
 ```ts
-todo
+/* _____________ Test Cases _____________ */
+type test1 = Sum<2, 3>; // '5'
+type test2 = Sum<"13", "21">; // '34'
+type test3 = Sum<"328", 7>; // '335'
+type test4 = Sum<1_000_000_000_000n, "123">; // '1000000000123'
+type test5 = Sum<9999, 1>; // '10000'
+type test6 = Sum<4325234, "39532">; // '4364766'
+type test7 = Sum<728, 0>; // '728'
+type test8 = Sum<"0", 213>; // '213'
+type test9 = Sum<0, "0">; // '0'
+
+
+/* _____________ Your Code Here _____________ */
+// 反转字符串  '123' -> '321'
+type Reverse<A extends string | number | bigint> =
+  `${A}` extends `${infer AH}${infer AT}` ? `${Reverse<AT>}${AH}` : "";
+
+// 数字（+1后）对应的下一个数字
+type DigsNext = {
+  "0": "1";
+  "1": "2";
+  "2": "3";
+  "3": "4";
+  "4": "5";
+  "5": "6";
+  "6": "7";
+  "7": "8";
+  "8": "9";
+};
+
+// 数字（-1后）对应的上一个数字
+type DigsPrev = { [K in keyof DigsNext as DigsNext[K]]: K };
+
+// 把第一位加1, 1234 -> 2234，
+type AddOne<A> = A extends `${infer AH}${infer AT}`
+  // 第一位是9，就需要后面的进1位
+  ? AH extends "9"
+    ? `0${AddOne<AT>}`
+    : `${DigsNext[AH & keyof DigsNext]}${AT}`
+  : "1";
+
+// 把第一位减1，1234 -> 0234
+type SubOne<A> = A extends `${infer AH}${infer AT}`
+  ? AH extends "0"
+    ? `9${SubOne<AT>}`
+    : `${DigsPrev[AH & keyof DigsPrev]}${AT}`
+  : never;
+
+// A + B就是A + 1...1，加B次1
+// 分别匹配出A,B的第一位
+type Add<A, B> = A extends `${infer AH}${infer AT}`
+  ? B extends `${infer BH}${infer BT}`
+    // 如果B的第一位是0
+    ? BH extends "0"
+      // 则结果数字的第一位就是A的第一位，然后把剩余的A和B相加
+      ? `${AH}${Add<AT, BT>}`
+      // B的第一位不是0，就A+1， B-1再相加
+      : Add<AddOne<A>, SubOne<B>>
+    : A
+  : B;
+
+type Sum<
+  A extends string | number | bigint,
+  B extends string | number | bigint
+  // 转成字符串反转，从左到右计算出结果后，再反转回来
+  // 例如12 + 345，是把12和45相加，但是字符串的匹配不好直接匹配尾位
+  // '345' extends `${infer F}${infer R}` -> 匹配出F是5，R是34，也就是从左到右一位一位的匹配
+> = Reverse<Add<Reverse<A>, Reverse<B>>>;
 ```
 
 ### ValidData
