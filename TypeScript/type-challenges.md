@@ -4208,10 +4208,107 @@ type TwoSum<T extends number[], U extends number> = T extends [
   : false;
 ```
 
-### Multiply 
+### Multiply
+
+>实现类型版本的两个数相乘。
 
 ```ts
-todo
+/* _____________ Test Cases _____________ */
+type test1 = Multiply<2, 3>; // '6'
+type test2 = Multiply<3, "5">; // '15'
+type test3 = Multiply<"4", 10>; // '40'
+type test4 = Multiply<0, 16>; // '0'
+type test5 = Multiply<"13", "21">; // '273'
+type test6 = Multiply<"43423", 321543n>; // '13962361689'
+type test7 = Multiply<9999, 1>; // '9999'
+type test8 = Multiply<4325234, "39532">; // '170985150488'
+type test9 = Multiply<100_000n, "1">; // '100000'
+type test10 = Multiply<259, 9125385>; // '2363474715'
+type test11 = Multiply<9, 99>; // '891'
+type test12 = Multiply<315, "100">; // '31500'
+type test13 = Multiply<11n, 13n>; // '143'
+type test14 = Multiply<728, 0>; // '0'
+type test15 = Multiply<"0", 213>; // '0'
+type test16 = Multiply<0, "0">; // '0'
+
+
+/* _____________ Your Code Here _____________ */
+// 反转字符串  '123' -> '321'
+type Reverse<A extends string | number | bigint> =
+  `${A}` extends `${infer AH}${infer AT}` ? `${Reverse<AT>}${AH}` : "";
+
+// 数字（+1后）对应的下一个数字
+type DigsNext = {
+  "0": "1";
+  "1": "2";
+  "2": "3";
+  "3": "4";
+  "4": "5";
+  "5": "6";
+  "6": "7";
+  "7": "8";
+  "8": "9";
+};
+
+// 数字（-1后）对应的上一个数字
+type DigsPrev = { [K in keyof DigsNext as DigsNext[K]]: K };
+
+// 把第一位加1, 1234 -> 2234，
+type AddOne<A> = A extends `${infer AH}${infer AT}`
+  ? // 第一位是9，就需要后面的进1位
+    AH extends "9"
+    ? `0${AddOne<AT>}`
+    : `${DigsNext[AH & keyof DigsNext]}${AT}`
+  : "1";
+
+// 把第一位减1，1234 -> 0234
+type SubOne<A> = A extends `${infer AH}${infer AT}`
+  ? AH extends "0"
+    ? `9${SubOne<AT>}`
+    : `${DigsPrev[AH & keyof DigsPrev]}${AT}`
+  : never;
+
+// A + B就是A + 1...1，加B次1
+// 分别匹配出A,B的第一位
+type Add<A, B> = A extends `${infer AH}${infer AT}`
+  ? B extends `${infer BH}${infer BT}`
+    ? // 如果B的第一位是0
+      BH extends "0"
+      ? // 则结果数字的第一位就是A的第一位，然后把剩余的A和B相加
+        `${AH}${Add<AT, BT>}`
+      : // B的第一位不是0，就A+1， B-1再相加
+        Add<AddOne<A>, SubOne<B>>
+    : A
+  : B;
+
+type Sum<
+  A extends string | number | bigint,
+  B extends string | number | bigint
+  // 转成字符串反转，从左到右计算出结果后，再反转回来
+  // 例如12 + 345，是把12和45相加，但是字符串的匹配不好直接匹配尾位
+  // '345' extends `${infer F}${infer R}` -> 匹配出F是5，R是34，也就是从左到右一位一位的匹配
+> = Reverse<Add<Reverse<A>, Reverse<B>>>;
+
+// 把B做计数器，每次A + A，B - 1，直到B为0
+type Mul<A extends string, B extends string, Res = "0"> = A extends "0"
+  ? Res
+  : B extends "0"
+  ? Res
+  // 这里缩短计算量
+  : B extends `${infer BH}${infer BT}`
+  // 如果计数器B的首尾为0，则把0挪到A上，相当于B=B/10, A=A*10
+  // 100 * 200 -> 1000 * 20 -> 10000 * 2 -> 10000 + 10000
+  ? BH extends "0"
+    ? Mul<`0${A}`, BT, Res>
+    : Mul<A, SubOne<B>, Add<Res, A>>
+  : Res;
+
+// 把乘法转成加法思考，两数相乘，就是把第一个数加第二个数次
+// A X B = A + A ... A = A + B个A
+type Multiply<
+  A extends string | number | bigint,
+  B extends string | number | bigint
+> = Reverse<Mul<Reverse<A>, Reverse<B>>>;
 ```
 
 ### Tag
