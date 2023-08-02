@@ -79,3 +79,5 @@ for (const value of obj) {
   console.log(value)
 }
 ```
+
+### 4. 闭包是什么，有什么用途？
