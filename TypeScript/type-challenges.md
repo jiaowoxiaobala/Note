@@ -3726,8 +3726,68 @@ type FizzBuzz<
 
 ### Run-length encoding
 
+>给定一个`string`字母序列`AAABCCXXXXXXY`，返回运行长度编码字符串`3AB2C6XY`。还要为该字符串制作一个解码器。
+
 ```ts
-todo
+/* _____________ Test Cases _____________ */
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B
+  ? 1
+  : 2
+  ? true
+  : false;
+
+// Raw string -> encoded string
+type test1 = Equal<RLE.Encode<"AAABCCXXXXXXY">, "3AB2C6XY">;
+
+// Encoded string -> decoded string
+type test2 = Equal<RLE.Decode<"3AB2C6XY">, "AAABCCXXXXXXY">;
+
+/* _____________ Your Code Here _____________ */
+namespace RLE {
+  export type Encode<
+    S,
+    C extends string[] = [],
+    R extends string = ""
+      // 遍历S
+  > = S extends `${infer A extends string}${infer B extends string}`
+    ? C extends []
+      ? Encode<B, [A], R>
+      // 判断当前字符是否和C中的字符相同，如果相同，那么就把当前字符放进去
+      // 例如A = 'A', C = ['A'] -> C = ['A', 'A']
+      : A extends C[number]
+      ? Encode<B, [...C, A], R>
+      // 如果不相同，那么就把C中的字符长度和字符放进R
+      : Encode<
+          B,
+          [A],
+          // 如果C的长度为1，则不需要写入长度，否则写入长度（长度为字符的重复次数）
+          // 例如AAA -> 3A, B -> B
+          `${R}${C["length"] extends 1 ? "" : C["length"]}${C[number]}`
+        >
+    : `${R}${C["length"] extends 1 ? "" : C["length"]}${C[number]}`;
+
+  // 把S重复N次
+  type Repeat<
+    S extends string,
+    N extends number,
+    R extends string = "",
+    C extends any[] = []
+  > = C["length"] extends N ? R : Repeat<S, N, `${R}${S}`, [...C, unknown]>;
+
+  export type Decode<
+    S extends string,
+    R extends string = ""
+    // 遍历S
+  > = S extends `${infer A}${infer B extends string}`
+    // 判断A是否是数字，如果是数字，那么就把B中的第一个字符重复A次放进R
+    ? A extends `${infer N extends number}`
+      ? B extends `${infer D extends string}${infer F extends string}`
+        ? Decode<F, `${R}${Repeat<D, N>}`>
+        : never
+      // A不是数字直接拼接到R中
+      : Decode<B, `${R}${A}`>
+    : R;
+}
 ```
 
 ### Tree path array
