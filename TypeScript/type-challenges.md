@@ -1396,6 +1396,34 @@ type FirstUniqueCharIndex<T extends string, N extends string = T, R extends unkn
   : -1
 ```
 
+### Parse URL Params
+
+>将`URL`参数字符串解析为联合。
+
+```ts
+/* _____________ Your Code Here _____________ */
+
+// 以：做分割匹配，假设T ='posts/:id/:user'，此时R = 'id/:user'
+type ParseUrlParams<T extends string> = T extends `${infer _}:${infer R}`
+  // 再让R以/做分割匹配，此时A = 'id', B = ':user'
+  ? R extends `${infer A}/${infer B}`
+    // id | ParseUrlParams<':user'>
+    ? A | ParseUrlParams<B>
+
+    // 不匹配直接返回R
+    : R
+  : never;
+
+/* _____________ Test Cases _____________ */
+
+type test1 = ParseUrlParams<"">; // never
+type test2 = ParseUrlParams<":id">; // "id"
+type test3 = ParseUrlParams<"posts/:id">; // "id"
+type test4 = ParseUrlParams<"posts/:id/">; // "id"
+type test5 = ParseUrlParams<"posts/:id/:user">; // "id" | "user"
+type test6 = ParseUrlParams<"posts/:id/:user/like">; // "id" | "user"
+```
+
 ### GetMiddleElement
 >通过实现一个`GetMiddleElement`方法，获取数组的中间元素，用数组表示。如果数组的长度为奇数，则返回中间一个元素 如果数组的长度为偶数，则返回中间两个元素
 
@@ -1563,6 +1591,12 @@ type Combs<T extends string[]> = T extends [
   ? `${F}${R[number]}` | Combs<R>
   : never
 ```
+
+### Permutations of Tuple
+
+>给定一个泛型元组类型 T extends unknown[] ，写一个产生所有排列 T 的类型作为并集
+
+
 
 ### Replace First
 
@@ -1749,7 +1783,7 @@ type Triangular<
 
 ### CartesianProduct
 
->
+>给定2个集合(并集)，返回其在一组元组中的笛卡尔积。
 
 ```ts
 // Union<2 | 3> -> [2] | [3]
