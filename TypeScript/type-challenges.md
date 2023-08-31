@@ -1568,6 +1568,43 @@ type Filter<T extends unknown[], P> = T extends [infer F, ...infer R]
   : [];
 ```
 
+### FindAll 
+
+>给定一个模式字符串`P`和一个文本字符串`T`，实现返回一个`Array`的类型，该数组`FindAll<T, P>`包含`P`匹配的`T`中的所有索引。
+
+
+```ts
+/* _____________ Your Code Here _____________ */
+type NormalFindAll<
+  T extends string,
+  S extends string,
+  P extends number[] = [],
+  // R存储所有的索引
+  R extends number[] = []
+  // 匹配去除首位，得到剩余字符L
+> = T extends `${string}${infer L}`
+  ? // 判断是否匹配以S开头，如是是记录索引
+    T extends `${S}${string}`
+    ? // P每次长度+1（对应每次匹配去除首位
+      NormalFindAll<L, S, [...P, 0], [...R, P["length"]]>
+    : NormalFindAll<L, S, [...P, 0], R>
+  : R;
+
+type FindAll<T extends string, P extends string> = P extends ""
+  ? []
+  : NormalFindAll<T, P>;
+
+/* _____________ Test Cases _____________ */
+
+type test1 = FindAll<"Collection of TypeScript type challenges", "Type">; // [14]
+type test2 = FindAll<"Collection of TypeScript type challenges", "pe">; // [16, 27]
+type test3 = FindAll<"Collection of TypeScript type challenges", "">; // []
+type test4 = FindAll<"", "Type">; // []
+type test5 = FindAll<"", "">; // []
+type test6 = FindAll<"AAAA", "A">; // [0, 1, 2, 3]
+```
+
+
 ### Combination key type
 
 >把多个修饰键两两组合，但不可以出现相同的修饰键组合，提供的`ModifierKeys`中，前面的值比后面的值高，即`cmd ctrl`是可以的，但`ctrl cmd`是不允许的。
@@ -1596,7 +1633,63 @@ type Combs<T extends string[]> = T extends [
 
 >给定一个泛型元组类型 T extends unknown[] ，写一个产生所有排列 T 的类型作为并集
 
+```ts
+/* _____________ Your Code Here _____________ */
+type PermutationsOfTuple<
+  T extends unknown[],
+  // 存储之前的元素
+  Prev extends unknown[] = []
+> = T extends [infer F, ...infer Rest]
+  ?
+      | [F, ...PermutationsOfTuple<[...Prev, ...Rest]>]
+      // 每次递归时把前面的元素存进去
+      | (Rest extends [] ? never : PermutationsOfTuple<Rest, [...Prev, F]>)
+  : [];
 
+type a = PermutationsOfTuple<[any, unknown, never]>;
+
+/* _____________ Test Cases _____________ */
+
+type Equal<A, B> = (<X>() => X extends A ? 1 : 2) extends <X>() => X extends B
+  ? 1
+  : 2
+  ? true
+  : false;
+
+type Expect<T extends true> = T;
+type ExpectFalse<T extends false> = T;
+
+type cases = [
+  Expect<Equal<PermutationsOfTuple<[]>, []>>,
+  Expect<Equal<PermutationsOfTuple<[any]>, [any]>>,
+  Expect<
+    Equal<PermutationsOfTuple<[any, unknown]>, [any, unknown] | [unknown, any]>
+  >,
+  Expect<
+    Equal<
+      PermutationsOfTuple<[any, unknown, never]>,
+      | [any, unknown, never]
+      | [unknown, any, never]
+      | [unknown, never, any]
+      | [any, never, unknown]
+      | [never, any, unknown]
+      | [never, unknown, any]
+    >
+  >,
+  Expect<
+    Equal<
+      PermutationsOfTuple<[1, number, unknown]>,
+      | [1, number, unknown]
+      | [1, unknown, number]
+      | [number, 1, unknown]
+      | [unknown, 1, number]
+      | [number, unknown, 1]
+      | [unknown, number, 1]
+    >
+  >,
+  ExpectFalse<Equal<PermutationsOfTuple<[1, number, unknown]>, [unknown]>>
+];
+```
 
 ### Replace First
 
