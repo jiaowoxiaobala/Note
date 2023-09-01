@@ -3104,19 +3104,26 @@ type test3 = Split<"Hi! How are you?", "">; // ['H', 'i', '!', ' ', 'H', 'o', 'w
 type test4 = Split<"", "">; // []
 type test5 = Split<"", "z">; // ['']
 type test6 = Split<string, "whatever">; // string[]
+type test7 = Split<"Hi! How are you?">; // ["Hi! How are you?"]
+type test8 = Split<"The sine in cosine", "in">; // ['The s', 'e ', ' cos', 'e']
+type test9 = Split<"Never say never, forever and ever.", "ver">; // ['Ne', ' say ne', ', fore', ' and e', '.']
 
 /* _____________ Your Code Here _____________ */
-type Split<S extends string, SEP extends string> = string extends S
+type Split<S extends string, SEP extends string = never> = string extends S
   // 对直接传入string做处理
   ? string[]
+  // 判断分割符是否是never
+  : [SEP] extends [never]
+  ? [S]
   // 以分隔符匹配，匹配分隔符前面和后面的所有字符
   : S extends `${infer L}${SEP}${infer R}`
   // 把前面的添加进数组，继续递归后面的
   ? [L, ...Split<R, SEP>]
-  // 判断分隔符是否非空
-  : SEP extends ""
-  ? []
-  : [S];
+  : // 判断分隔符是否非空
+  SEP extends ""
+    ? []
+    : [S];
+
 ```
 
 ### ClassPublicKeys
