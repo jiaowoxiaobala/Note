@@ -1155,6 +1155,16 @@ type IndexOf<T, U, R extends unknown[] = []> = T extends [
 >实现`Array.join`的类型版本，`Join`接受一个数组类型`T`，和一个字符串或数字类型`U`，返回由`U`拼接而成的数组`T`。
 
 ```typescript
+/* _____________ Test Cases _____________ */
+type test1 = Join<['a', 'p', 'p', 'l', 'e'], '-'> // 'a-p-p-l-e'
+type test2 = Join<['Hello', 'World'], ' '> // 'Hello World'
+type test3 = Join<['2', '2', '2'], 1> // '21212'
+type test4 = Join<['o'], 'u'> // 'o'
+type test5 = Join<[], 'u'> // ''
+type test6 = Join<['1', '1', '1']> // '1,1,1'
+
+
+/* _____________ Your Code Here _____________ */
 // 定义一个类型"变量"R存储拼接后的字符
 type Join<T, U extends string | number, R extends string = ""> = T extends [
   // 取出第一个字符
@@ -1172,7 +1182,7 @@ type Join<T extends any[], U extends string | number> = T extends [
   ? R["length"] extends 0
     ? `${F & string}`
     : `${F & string}${U}${Join<R, U>}`
-  : never;
+  : '';
 ```
 
 ### LastIndexOf
@@ -2040,6 +2050,43 @@ type cases = [
   // @ts-expect-error
   Expect<Equal<ExtractToObject<test4, 'prop4'>, testExpect4>>,
 ]
+```
+
+### Deep Omit
+
+>实现一个类型，像实用工具类型`Omit`，类型`DeepOmit`有两个参数。
+
+```ts
+/* _____________ Test Cases _____________ */
+type obj = {
+  person: {
+    name: string;
+    age: {
+      value: number
+    }
+  }
+}
+
+type test1 = DeepOmit<obj, 'person'>    // {}
+type test2 = DeepOmit<obj, 'person.name'> // { person: { age: { value: number } } }
+type test3 = DeepOmit<obj, 'name'> // { person: { name: string; age: { value: number } } }
+type test4 = DeepOmit<obj, 'person.age.value'> // { person: { name: string; age: {} } }
+
+
+/* _____________ Your Code Here _____________ */
+// 以.分割匹配，'person.age' -> K = 'person'，R = 'age'
+type DeepOmit<T, Paths> = Paths extends `${infer K}.${infer R}`
+  // 判断K是否是T的键
+  ? K extends keyof T
+    ? { 
+        // 递归去除
+        [P in keyof T]: P extends K ? DeepOmit<T[P], R> : T[P];
+      }
+    : T
+  : // 匹配不上，遍历T的所有键，判断是否匹配Paths，如果是则去除这个键
+    {
+      [K in keyof T as K extends Paths ? never : K]: T[K];
+    };
 ```
 
 ## hard
