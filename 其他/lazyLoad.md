@@ -15,12 +15,12 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Document</title>
-    <div style="height: 2000px;"></div>
+</head>
+<body>
+  <div style="height: 2000px;"></div>
     <div>
       <img data-src="http://mmbiz.qpic.cn/sz_mmbiz_gif/6a4WXcicqr58uvyz4iaOzEXP8jCIMcicRMib2au60ic8uD3Ym6op0QsoSvDgz8B8eEU3jsbXVkWII9CcQykv8aeB03Q/0?wx_fmt=gif"/>
     </div>
-</head>
-<body>
   <script>
     const imgs = Array.from(document.querySelectorAll('img[data-src]'))
     // 获取可视区域的高度
@@ -79,12 +79,12 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Document</title>
-    <div style="height: 2000px;"></div>
-    <div>
-      <img data-src="http://mmbiz.qpic.cn/sz_mmbiz_gif/6a4WXcicqr58uvyz4iaOzEXP8jCIMcicRMib2au60ic8uD3Ym6op0QsoSvDgz8B8eEU3jsbXVkWII9CcQykv8aeB03Q/0?wx_fmt=gif"/>
-    </div>
 </head>
 <body>
+  <div style="height: 2000px;"></div>
+  <div>
+    <img data-src="http://mmbiz.qpic.cn/sz_mmbiz_gif/6a4WXcicqr58uvyz4iaOzEXP8jCIMcicRMib2au60ic8uD3Ym6op0QsoSvDgz8B8eEU3jsbXVkWII9CcQykv8aeB03Q/0?wx_fmt=gif"/>
+  </div>
   <script>
     const imgs = Array.from(document.querySelectorAll('img[data-src]'))
     // 获取可视区域的高度
@@ -131,12 +131,12 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Document</title>
-    <div style="height: 2000px;"></div>
-    <div>
-      <img data-src="http://mmbiz.qpic.cn/sz_mmbiz_gif/6a4WXcicqr58uvyz4iaOzEXP8jCIMcicRMib2au60ic8uD3Ym6op0QsoSvDgz8B8eEU3jsbXVkWII9CcQykv8aeB03Q/0?wx_fmt=gif"/>
-    </div>
 </head>
 <body>
+  <div style="height: 2000px;"></div>
+  <div>
+    <img data-src="http://mmbiz.qpic.cn/sz_mmbiz_gif/6a4WXcicqr58uvyz4iaOzEXP8jCIMcicRMib2au60ic8uD3Ym6op0QsoSvDgz8B8eEU3jsbXVkWII9CcQykv8aeB03Q/0?wx_fmt=gif"/>
+  </div>
   <script>
     const imgs = document.querySelectorAll('img[data-src]')
 
